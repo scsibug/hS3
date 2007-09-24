@@ -42,6 +42,8 @@ s3operationsTest =
                  testSendObject c testObj
                  -- Object get
                  testGetObject c testObj
+                 -- Object get info
+                 testGetObjectInfo c testObj
                  -- Object list
                  testListObject c bucket 1
                  -- Object delete
@@ -77,6 +79,14 @@ testGetObject c o =
               (\x -> do assertEqual "object get body"
                                         (obj_data x) (obj_data o)
                         assertEqual "object get metadata"
+                                        (obj_headers x) (obj_headers o)
+              )
+
+testGetObjectInfo :: AWSConnection -> S3Object -> IO ()
+testGetObjectInfo c o =
+    do r <- getObject c o
+       failOnError r ()
+              (\x -> do assertEqual "object info get metadata"
                                         (obj_headers x) (obj_headers o)
               )
 

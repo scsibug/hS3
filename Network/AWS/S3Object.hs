@@ -56,12 +56,25 @@ sendObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
 getObject :: AWSConnection            -- ^ AWS connection information
           -> S3Object                 -- ^ Object to retrieve
           -> IO (AWSResult S3Object)  -- ^ Server response
-getObject aws obj =
+getObject = getObjectWithMethod GET
+
+-- | Get object info without retrieving content body from server.
+getObjectInfo :: AWSConnection            -- ^ AWS connection information
+              -> S3Object                 -- ^ Object to retrieve information on
+              -> IO (AWSResult S3Object)  -- ^ Server response
+getObjectInfo = getObjectWithMethod HEAD
+
+-- | Get an object with specified method.
+getObjectWithMethod :: RequestMethod -- ^ Method to use for retrieval (GET/HEAD)
+                    -> AWSConnection -- ^ AWS connection
+                    -> S3Object      -- ^ Object to request
+                    -> IO (AWSResult S3Object)
+getObjectWithMethod m aws obj =
     do res <- Auth.runAction (S3Action aws (obj_bucket obj)
                                            (obj_name obj)
                                            ""
                                            (obj_headers obj)
-                                           "" GET)
+                                           "" m)
        return (either (Left) (\x -> Right (populate_obj_from x)) res)
            where
              populate_obj_from x = obj {obj_data = (rspBody x)}
