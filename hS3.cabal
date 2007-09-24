@@ -1,7 +1,7 @@
 Name:           hS3
 Version:        0.1
 License:        BSD3
-License-file: LICENSE
+License-file:   LICENSE
 Copyright: 
   Copyright (c) 2007, Greg Heartsfield
 Author:         Greg Heartsfield <scsibug@imap.cc>

@@ -50,50 +50,54 @@ s3operationsTest =
                  testDeleteBucket c bucket
              )
 
+failOnError :: (Show a) =>
+               Either a b  -- ^ AWS Result to inspect
+            -> t           -- ^ Value to return on failure
+            -> (b -> IO t) -- ^ Assertions to run on success
+            -> IO t
+failOnError r f d = do either (\x -> do assertFailure (show x)
+                                        return f)
+                          (\x -> do d x) r
+
 testCreateBucket :: AWSConnection -> IO String
 testCreateBucket c =
     do r <- createBucketWithPrefix c testBucket
-       either (\x -> do assertFailure (show x)
-                        return ""
-              )
-              (\x -> do assertBool "bucket creation" True
-                        return x
-              ) r
+       failOnError r "" (\x -> assertBool "bucket creation" True >> return x)
 
 testSendObject :: AWSConnection -> S3Object -> IO ()
 testSendObject c o =
     do r <- sendObject c o
-       either (\x -> assertFailure (show x))
-              (const $ assertBool "object send" True) r
+       failOnError r ()
+              (const $ assertBool "object send" True)
 
 testGetObject :: AWSConnection -> S3Object -> IO ()
 testGetObject c o =
     do r <- getObject c o
-       either (\x -> assertFailure (show x))
+       failOnError r ()
               (\x -> do assertEqual "object get body"
                                         (obj_data x) (obj_data o)
                         assertEqual "object get metadata"
                                         (obj_headers x) (obj_headers o)
-              ) r
+              )
 
 -- test that a bucket has a given number of objects
 testListObject :: AWSConnection -> String -> Int -> IO ()
 testListObject c bucket count =
     do r <- listObjects c bucket (ListRequest "" "" "" 100)
-       either (\x -> assertFailure (show x))
-              (\x -> assertEqual "object list" count (length x)) r
+       failOnError r ()
+              (\x -> assertEqual "object list" count (length x))
 
 testDeleteObject :: AWSConnection -> S3Object -> IO ()
 testDeleteObject c o =
     do r <- deleteObject c o
-       either (\x -> assertFailure (show x))
-              (const $ assertBool "object delete" True) r
+       failOnError r ()
+              (const $ assertBool "object delete" True)
 
 testDeleteBucket :: AWSConnection -> String -> IO ()
 testDeleteBucket c bucket =
     do r <- deleteBucket c bucket
-       either (\x -> assertFailure (show x))
-              (const $ assertBool "bucket deletion" True) r
+       failOnError r ()
+              (const $ assertBool "bucket deletion" True)
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
              return (fromJust mConn)
