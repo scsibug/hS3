@@ -1,0 +1,27 @@
+Name:           hS3
+Version:        0.1
+License:        BSD3
+License-file: LICENSE
+Copyright: 
+  Copyright (c) 2007, Greg Heartsfield
+Author:         Greg Heartsfield <scsibug@imap.cc>
+Maintainer:     Greg Heartsfield <scsibug@imap.cc>
+Homepage:       http://scsibug.com/hS3
+Category:       Network, Web
+Stability:      Alpha
+Synopsis:       Interface to Amazon's Simple Storage Service (S3).
+Description:    This is the Haskell S3 library.  It provides an
+                interface to Amazon's Simple Storage Service (S3), allowing Haskell
+                developers to reliably store and retrieve arbitrary amounts of
+                data from anywhere on the Internet.
+extra-source-files: README, Tests.hs
+Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.0.3, hxt, network, regex-compat
+GHC-options: -O
+Exposed-modules:
+        Network.AWS.S3Object,
+        Network.AWS.S3Bucket,
+        Network.AWS.AWSResult,
+        Network.AWS.AWSConnection,
+        Network.AWS.Authentication,
+        Network.AWS.ArrowUtils
+

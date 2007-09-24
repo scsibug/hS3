@@ -1,0 +1,41 @@
+DESCRIPTION
+
+This is the Haskell S3 library (hS3).  It provides an interface to
+Amazon's Simple Storage Service, allowing Haskell developers to
+reliably store and retrieve arbitrary amounts of data from anywhere on
+the Internet.  To learn more about Amazon S3, and sign up for an
+account, visit <http://aws.amazon.com/s3>.
+
+REQUIREMENTS
+
+* Glasgow Haskell Compiler (GHC).  Other compilers are untested.
+
+* Haskell HTTP Library <http://www.haskell.org/http/>, the latest
+  version (>3000.0) is required, use the darcs repository.
+
+* Haskell Cryptographic Library <http://www.haskell.org/crypto/>, the
+  latest version (>4.0.3) is required, use the darcs repository.
+
+* Haskell XML Toolbox (HXT) <http://www.fh-wedel.de/~si/HXmlToolbox/>,
+  tested with version 7.3, earlier versions may work.
+
+INSTALLATION
+
+* Configure:
+
+$ runhaskell Setup.hs configure
+
+* Compile:
+
+$ runhaskell Setup.hs build
+
+* Install (as root):
+
+# runhaskell Setup.hs install
+
+ACKNOWLEDGEMENTS
+
+* Authors and contributors to the HTTP, Crypto, and HXT projects.
+
+* Jinesh Varia (Amazon Web Services Evangelist)
+
