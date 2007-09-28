@@ -39,7 +39,7 @@ data S3Object =
                obj_headers :: [(String, String)],
                -- | Object data.
                obj_data :: String
-    } deriving (Show)
+    } deriving (Read, Show)
 
 -- | Send data for an object.
 sendObject :: AWSConnection      -- ^ AWS connection information
@@ -77,7 +77,18 @@ getObjectWithMethod m aws obj =
                                            "" m)
        return (either (Left) (\x -> Right (populate_obj_from x)) res)
            where
-             populate_obj_from x = obj {obj_data = (rspBody x)}
+             populate_obj_from x =
+                 obj { obj_data = (rspBody x),
+                       obj_headers = (headersFromResponse x) }
+
+headersFromResponse :: Response -> [(String,String)]
+headersFromResponse r =
+    let respheaders = rspHeaders r
+    in map (\x -> case x of
+                    Header (HdrCustom name) val -> (name, val)
+           ) (filter isAmzHeader respheaders)
+
+
 
 -- | Delete an object.  Only bucket and object name need to be
 --   specified in the S3Object.  Deletion of a non-existent object

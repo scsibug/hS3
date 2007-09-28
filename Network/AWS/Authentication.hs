@@ -12,7 +12,7 @@
 
 module Network.AWS.Authentication (
    -- * Function Types
-   runAction,
+   runAction, isAmzHeader,
    -- * Data Types
    S3Action(..)
    ) where

@@ -29,7 +29,7 @@ tests =
 testBucket = "hS3-test"
 
 testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
-                     [("x-amz-foo", "bar")] "Hello S3!"
+                     [("x-amz-meta-foo", "bar")] "Hello S3!"
 
 -- | A sequence of several operations.
 s3operationsTest =
@@ -77,9 +77,9 @@ testGetObject c o =
     do r <- getObject c o
        failOnError r ()
               (\x -> do assertEqual "object get body"
-                                        (obj_data x) (obj_data o)
+                                        (obj_data o) (obj_data x)
                         assertEqual "object get metadata"
-                                        (obj_headers x) (obj_headers o)
+                                        (obj_headers o) (realMetadata (obj_headers x))
               )
 
 testGetObjectInfo :: AWSConnection -> S3Object -> IO ()
@@ -87,7 +87,7 @@ testGetObjectInfo c o =
     do r <- getObject c o
        failOnError r ()
               (\x -> do assertEqual "object info get metadata"
-                                        (obj_headers x) (obj_headers o)
+                                        (obj_headers o) (realMetadata (obj_headers x))
               )
 
 -- test that a bucket has a given number of objects
@@ -111,3 +111,11 @@ testDeleteBucket c bucket =
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
              return (fromJust mConn)
+
+-- These headers get added by amazon, but ignore them for
+-- testing metadata storage.
+headersToIgnore = ["x-amz-id-2", "x-amz-request-id"]
+
+realMetadata :: [(String, b)] -> [(String, b)]
+realMetadata = filter (\x -> (fst x) `notElem` headersToIgnore)
+
