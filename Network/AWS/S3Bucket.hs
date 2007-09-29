@@ -16,7 +16,8 @@ module Network.AWS.S3Bucket (
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
-               ListResult(..)
+               ListResult(..),
+               IsTruncated
               ) where
 
 import Network.AWS.Authentication as Auth
