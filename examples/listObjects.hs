@@ -27,7 +27,7 @@ main = do argv <- getArgs
           let bucket : xs = argv
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          res <- listObjects conn bucket (ListRequest "" ""  "" 1000)
+          res <- listAllObjects conn bucket (ListRequest "" ""  "" 1000)
           either (putStrLn . prettyReqError)
                  (\x -> do putStrLn ("Key list from bucket " ++
                                      bucket ++

@@ -11,15 +11,17 @@
 
 module Network.AWS.S3Bucket (
                -- * Function Types
-               createBucket, createBucketWithPrefix, deleteBucket, listBuckets, listObjects,
+               createBucket, createBucketWithPrefix, deleteBucket,
+               emptyBucket, listBuckets, listObjects, listAllObjects,
                -- * Data Types
-               Bucket(Bucket, bucket_name, bucket_creation_date),
+               S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
                ListResult(..)
               ) where
 
 import Network.AWS.Authentication as Auth
 import Network.AWS.AWSResult
+import Network.AWS.S3Object
 import Network.AWS.AWSConnection
 import Network.AWS.ArrowUtils
 
@@ -38,9 +40,9 @@ import Codec.Utils
 import Data.Digest.MD5
 import Codec.Text.Raw
 
-data Bucket = Bucket { bucket_name :: String,
-                       bucket_creation_date :: String
-                     } deriving (Show, Eq)
+data S3Bucket = S3Bucket { bucket_name :: String,
+                           bucket_creation_date :: String
+                         } deriving (Show, Eq)
 
 -- | Create a new bucket on S3 with the given prefix, and a random
 --   suffix.  This can be used to programatically create buckets
@@ -63,7 +65,8 @@ createBucketWithPrefix aws pre =
 randomName :: IO String
 randomName =
     do rdata <- randomIO
-       return $ take 10 $ show $ hexdumpBy "" 999  (hash (toOctets 10 (abs rdata)))
+       return $ take 10 $ show $ hexdumpBy "" 999
+                  (hash (toOctets 10 (abs rdata)))
 
 -- | Create a new bucket on S3 with the given name.
 createBucket :: AWSConnection -- ^ AWS connection information
@@ -83,10 +86,35 @@ deleteBucket aws bucket =
     do res <- Auth.runAction (S3Action aws bucket "" "" [] "" DELETE)
        return (either (Left) (\x -> Right ()) res)
 
+-- | Empty a bucket of all objects.  Iterates through all objects
+--   issuing delete commands, so time is proportional to number of
+--   objects in the bucket.  At this time, delete requests are free
+--   from Amazon.
+emptyBucket :: AWSConnection -- ^ AWS connection information
+            -> String -- ^ Bucket name to empty
+            -> IO (AWSResult ()) -- ^ Server response
+emptyBucket aws bucket =
+    do res <- listAllObjects aws bucket (ListRequest "" ""  "" 0)
+       let objFromRes x = S3Object bucket (key x) "" [] ""
+       case res of
+         Left x -> return (Left x)
+         Right y -> deleteObjects aws (map objFromRes y)
+
+-- | Delete a list of objects, stop as soon as an error is encountered.
+deleteObjects :: AWSConnection
+              -> [S3Object]
+              -> IO (AWSResult ())
+deleteObjects _ [] = return (Right ())
+deleteObjects aws (x:xs) =
+    do dr <- deleteObject aws x
+       case dr of
+         Left x -> return (Left x)
+         Right x -> deleteObjects aws xs
+
 -- | Return a list of all bucket names and creation dates.  S3
 --   allows a maximum of 100 buckets per user.
 listBuckets :: AWSConnection -- ^ AWS connection information
-           -> IO (AWSResult [Bucket]) -- ^ Server response
+           -> IO (AWSResult [S3Bucket]) -- ^ Server response
 listBuckets aws =
     do res <- Auth.runAction (S3Action aws "" "" "" [] "" GET)
        case res of
@@ -94,13 +122,13 @@ listBuckets aws =
          Right y -> do bs <- parseBucketListXML (rspBody y)
                        return (Right bs)
 
-parseBucketListXML :: String -> IO [Bucket]
+parseBucketListXML :: String -> IO [S3Bucket]
 parseBucketListXML x = runX (readString [(a_validate,v_0)] x >>> processBuckets)
 
 processBuckets = deep (isElem >>> hasName "Bucket") >>>
                  split >>> first (text <<< atTag "Name") >>>
                  second (text <<< atTag "CreationDate") >>>
-                 unsplit (\x y -> Bucket x y)
+                 unsplit (\x y -> S3Bucket x y)
 
 -- | List request parameters
 data ListRequest =
@@ -125,6 +153,9 @@ data ListResult =
       size :: Integer -- ^ Bytes of object data
     } deriving (Show)
 
+-- | Is a result set response truncated?
+type IsTruncated = Bool
+
 -- | List objects in a bucket, based on parameters from 'ListRequest'.  See
 --   the Amazon S3 developer resources for in depth explanation of how
 --   the fields in 'ListRequest' can be used to query for objects.
@@ -132,23 +163,34 @@ data ListResult =
 listObjects :: AWSConnection -- ^ AWS connection information
             -> String -- ^ Bucket name to search
             -> ListRequest -- ^ List parameters
-            -> IO (AWSResult [ListResult]) -- ^ Server response
-listObjects aws bucket lp =
+            -> IO (AWSResult (IsTruncated, [ListResult])) -- ^ Server response
+listObjects aws bucket lreq =
     do res <- Auth.runAction (S3Action aws bucket ""
-                                           ("?" ++ (show lp)) [] "" GET)
+                                           ("?" ++ (show lreq)) [] "" GET)
        case res of
          Left x -> do return (Left x)
          Right y -> do let objs = rspBody y
                        tr <- isListTruncated objs
                        lr <- getListResults objs
-                       case tr of
-                         True -> do let last_result = (key . head . reverse) lr
-                                    next_set <- listObjects aws bucket
-                                                (lp {marker = last_result,
-                                                              max_keys = (max_keys lp) - (length lr)})
-                                    either (\x -> return (Left x))
-                                           (\x -> return (Right (lr ++ x))) next_set
-                         False -> do return (Right lr)
+                       return (Right (tr, lr))
+
+-- | Repeatedly query the server for all objects in a bucket, ignoring the @max_keys@ field.
+listAllObjects :: AWSConnection -- ^ AWS connection information
+               -> String -- ^ Bucket name to search
+               -> ListRequest -- ^ List parameters
+               -> IO (AWSResult [ListResult]) -- ^ Server response
+listAllObjects aws bucket lp =
+    do let lp_max = lp {max_keys = 1000}
+       res <- listObjects aws bucket lp_max
+       case res of
+         Left x -> do return (Left x)
+         Right y -> case y of
+                      (True,lr) -> do let last_result = (key . head . reverse) lr
+                                      next_set <- listAllObjects aws bucket
+                                                  (lp_max {marker = last_result})
+                                      either (\x -> return (Left x))
+                                             (\x -> return (Right (lr ++ x))) next_set
+                      (False,lr) -> return (Right lr)
 
 -- | Determine if ListBucketResult is truncated.  It would make sense
 --   to combine this with the query for list results, so we didn't

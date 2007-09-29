@@ -44,10 +44,15 @@ s3operationsTest =
                  testGetObject c testObj
                  -- Object get info
                  testGetObjectInfo c testObj
-                 -- Object list
-                 testListObject c bucket 1
+                 -- Object list (should have 1 object in bucket)
+                 testListAllObjects c bucket 1
                  -- Object delete
                  testDeleteObject c testObj
+                 -- Object send, and then bucket empty
+                 testSendObject c testObj
+                 testEmptyBucket c bucket
+                 -- Bucket should now be empty
+                 testListAllObjects c bucket 0
                  -- Delete bucket
                  testDeleteBucket c bucket
              )
@@ -64,7 +69,9 @@ failOnError r f d = do either (\x -> do assertFailure (show x)
 testCreateBucket :: AWSConnection -> IO String
 testCreateBucket c =
     do r <- createBucketWithPrefix c testBucket
-       failOnError r "" (\x -> assertBool "bucket creation" True >> return x)
+       failOnError r "" (\x -> do assertBool "bucket creation" True
+                                  return x
+                        )
 
 testSendObject :: AWSConnection -> S3Object -> IO ()
 testSendObject c o =
@@ -79,23 +86,30 @@ testGetObject c o =
               (\x -> do assertEqual "object get body"
                                         (obj_data o) (obj_data x)
                         assertEqual "object get metadata"
-                                        (obj_headers o) (realMetadata (obj_headers x))
+                                        (obj_headers o)
+                                        (realMetadata (obj_headers x))
               )
 
 testGetObjectInfo :: AWSConnection -> S3Object -> IO ()
 testGetObjectInfo c o =
     do r <- getObject c o
        failOnError r ()
-              (\x -> do assertEqual "object info get metadata"
-                                        (obj_headers o) (realMetadata (obj_headers x))
+              (\x -> assertEqual "object info get metadata"
+                          (obj_headers o) (realMetadata (obj_headers x))
               )
 
 -- test that a bucket has a given number of objects
-testListObject :: AWSConnection -> String -> Int -> IO ()
-testListObject c bucket count =
-    do r <- listObjects c bucket (ListRequest "" "" "" 100)
+testListAllObjects :: AWSConnection -> String -> Int -> IO ()
+testListAllObjects c bucket count =
+    do r <- listAllObjects c bucket (ListRequest "" "" "" 100)
        failOnError r ()
               (\x -> assertEqual "object list" count (length x))
+
+testEmptyBucket :: AWSConnection -> String -> IO ()
+testEmptyBucket c b =
+    do r <- emptyBucket c b
+       failOnError r ()
+               (const $ assertBool "bucket empty" True)
 
 testDeleteObject :: AWSConnection -> S3Object -> IO ()
 testDeleteObject c o =
