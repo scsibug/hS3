@@ -45,12 +45,14 @@ data S3Object =
 sendObject :: AWSConnection      -- ^ AWS connection information
            -> S3Object           -- ^ Object to add to a bucket
            -> IO (AWSResult ())  -- ^ Server response
-sendObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
-                                                            (obj_name obj)
-                                                            ""
-                                                            (obj_headers obj)
-                                                            (obj_data obj) PUT)
-                        return (either (Left) (\x -> Right ()) res)
+sendObject aws obj =
+    do res <- Auth.runAction (S3Action aws (obj_bucket obj)
+                              (obj_name obj)
+                              ""
+                              (("Content-Type", (content_type obj)) :
+                               (obj_headers obj))
+                              (obj_data obj) PUT)
+       return (either (Left) (\x -> Right ()) res)
 
 -- | Retrieve an object.
 getObject :: AWSConnection            -- ^ AWS connection information
@@ -87,8 +89,6 @@ headersFromResponse r =
     in map (\x -> case x of
                     Header (HdrCustom name) val -> (name, val)
            ) (filter isAmzHeader respheaders)
-
-
 
 -- | Delete an object.  Only bucket and object name need to be
 --   specified in the S3Object.  Deletion of a non-existent object

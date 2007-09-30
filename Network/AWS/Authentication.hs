@@ -72,8 +72,10 @@ requestFromAction a =
 -- | Create 'Header' objects from an action.
 headersFromAction :: S3Action
                   -> [Header]
-headersFromAction a = map (\(k,v) -> (Header (HdrCustom k)) v)
-                      (s3metadata a)
+headersFromAction a = map (\(k,v) -> case k of
+                                       "Content-Type" -> Header HdrContentType v
+                                       otherwise -> (Header (HdrCustom k)) v)
+                                            (s3metadata a)
 
 -- | Inspect HTTP body, and add a @Content-Length@ header with the
 --   correct length.
