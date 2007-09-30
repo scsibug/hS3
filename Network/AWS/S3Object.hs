@@ -12,6 +12,7 @@
 module Network.AWS.S3Object (
   -- * Function Types
   sendObject, getObject, deleteObject,
+  publicUriForSeconds, publicUriUntilTime,
   -- * Data Types
   S3Object(..)
   ) where
@@ -20,6 +21,8 @@ import Network.AWS.Authentication as Auth
 import Network.AWS.AWSResult
 import Network.AWS.AWSConnection
 import Network.HTTP
+import Network.URI
+import System.Time
 
 -- | An object that can be stored and retrieved from S3.
 data S3Object =
@@ -53,6 +56,28 @@ sendObject aws obj =
                                (obj_headers obj))
                               (obj_data obj) PUT)
        return (either (Left) (\x -> Right ()) res)
+
+-- | Create a pre-signed request URI.  Anyone can use this to request
+--   an object until the specified date.
+publicUriUntilTime :: AWSConnection -- ^ AWS connection information
+                  -> S3Object -- ^ Object to be made available
+                  -> Integer -- ^ Expiration time, in seconds since
+                             --   00:00:00 UTC on January 1, 1970
+                  -> URI -- ^ URI for the object
+publicUriUntilTime c obj time =
+    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] "" GET
+    in preSignedURI act time
+
+-- | Create a pre-signed request URI.  Anyone can use this to request
+--   an object for the number of seconds specified.
+publicUriForSeconds :: AWSConnection -- ^ AWS connection information
+                    -> S3Object -- ^ Object to be made available
+                    -> Integer -- ^ How many seconds until this
+                               --   request expires
+                    -> IO URI -- ^ URI for the object
+publicUriForSeconds c obj time =
+    do TOD ctS _ <- getClockTime -- GHC specific, todo: get epoch within h98.
+       return (publicUriUntilTime c obj (ctS + time))
 
 -- | Retrieve an object.
 getObject :: AWSConnection            -- ^ AWS connection information

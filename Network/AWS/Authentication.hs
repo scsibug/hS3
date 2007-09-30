@@ -12,7 +12,7 @@
 
 module Network.AWS.Authentication (
    -- * Function Types
-   runAction, isAmzHeader,
+   runAction, isAmzHeader, preSignedURI,
    -- * Data Types
    S3Action(..)
    ) where
@@ -41,15 +41,22 @@ import Text.XML.HXT.Arrow
 
 -- | An action to be performed using S3.
 data S3Action =
-    S3Action { s3conn :: AWSConnection, -- ^ Connection and authentication
-                                        --   information
-               s3bucket :: String, -- ^ Name of bucket to act on
-               s3object :: String, -- ^ Name of object to act on
-               s3query :: String, -- ^ Query parameters, requires a prefix of @?@
-               s3metadata :: [(String, String)], -- ^ Additional header fields to send
-               s3body :: String, -- ^ Body of action, if sending data
-               s3operation :: RequestMethod -- ^ Type of action, 'PUT', 'GET', etc.
-             } deriving (Show)
+    S3Action {
+      -- | Connection and authentication information
+      s3conn :: AWSConnection,
+      -- | Name of bucket to act on
+      s3bucket :: String,
+      -- | Name of object to act on
+      s3object :: String,
+      -- | Query parameters (requires a prefix of @?@)
+      s3query :: String,
+      -- | Additional header fields to send
+      s3metadata :: [(String, String)],
+      -- | Body of action, if sending data
+      s3body :: String,
+      -- | Type of action, 'PUT', 'GET', etc.
+      s3operation :: RequestMethod
+    } deriving (Show)
 
 -- | Transform an 'S3Action' into an HTTP request.  Does not add
 --   authentication or date information, so it is not suitable for
@@ -88,10 +95,17 @@ addAuthenticationHeader :: S3Action     -- ^ Action with authentication data
                         -> HTTP.Request -- ^ Authenticated request
 addAuthenticationHeader act req = insertHeader HdrAuthorization auth_string req
     where auth_string = "AWS " ++ (awsAccessKey conn) ++ ":" ++ signature
-          signature = encode (hmac_sha1 keyOctets msgOctets)
-          keyOctets = string2words (awsSecretKey conn)
-          msgOctets = string2words (stringToSign act req)
+          signature = makeSignature conn (stringToSign act req)
           conn = s3conn act
+
+-- | Sign a string using the given authentication data
+makeSignature :: AWSConnection -- ^ Action with authentication data
+              -> String -- ^ String to sign
+              -> String -- ^ Base-64 encoded signature
+makeSignature c s =
+    encode (hmac_sha1 keyOctets msgOctets)
+        where keyOctets = string2words (awsSecretKey c)
+              msgOctets = string2words s
 
 -- | Generate text that will be signed and subsequently added to the
 --   request.
@@ -107,12 +121,13 @@ canonicalizeHeaders r =
     http_verb ++ "\n" ++
     hdr_content_md5 ++ "\n" ++
     hdr_content_type ++ "\n" ++
-    hdr_date ++ "\n"
+    dateOrExpiration ++ "\n"
         where http_verb = show (rqMethod r)
               hdr_content_md5 = get_header HdrContentMD5
               hdr_date = get_header HdrDate
               hdr_content_type = get_header HdrContentType
               get_header h = maybe "" id (findHeader h r)
+              dateOrExpiration = maybe hdr_date id (findHeader HdrExpires r)
 
 -- | Extract @x-amz-*@ headers needed for signing.
 --   find all headers with type HdrCustom that begin with amzHeader
@@ -188,13 +203,19 @@ canonicalizeResource a = bucket ++ uri
                      otherwise ->  case uri of
                                      [] -> "/" -- at the least we have a "/"
                                      otherwise -> ""
-
 -- | Add a date string to a request.
 addDateToReq :: HTTP.Request -- ^ Request to modify
              -> String       -- ^ Date string, in RFC 2616 format
              -> HTTP.Request -- ^ Request with date header added
 addDateToReq r d = r {HTTP.rqHeaders =
                           (HTTP.Header HTTP.HdrDate d) : (HTTP.rqHeaders r)}
+
+-- | Add an expiration date to a request
+addExpirationToReq :: HTTP.Request -> String -> HTTP.Request
+addExpirationToReq r e = addHeaderToReq r (HTTP.Header HTTP.HdrExpires e)
+
+addHeaderToReq :: HTTP.Request -> Header -> HTTP.Request
+addHeaderToReq r h = r {HTTP.rqHeaders = h : (HTTP.rqHeaders r)}
 
 -- | Get current time in HTTP 1.1 format (RFC 2616)
 --   Numeric time zones should be used, but I'd rather not subvert the
@@ -214,7 +235,6 @@ httpCurrentDate =
 string2words :: String -> [Octet]
 string2words = map (fromIntegral . ord)
 
-
 -- | Construct the request specified by an S3Action, send to Amazon,
 --   and return the response.  Todo: add MD5 signature.
 runAction :: S3Action -> IO (AWSResult Response)
@@ -225,6 +245,35 @@ runAction a = do c <- openTCPPort (awsHost (s3conn a)) (awsPort (s3conn a))
                             addDateToReq (requestFromAction a) cd
                  result <- (simpleHTTP_ c aReq)
                  createAWSResult result
+
+-- | Construct a pre-signed URI, but don't act on it.  This is useful
+-- | for when an expiration date has been set, and the URI needs to be
+-- | passed on to a client.
+preSignedURI :: S3Action -- ^ Action with resource
+             -> Integer -- ^ Expiration time, in seconds since
+                        --   00:00:00 UTC on January 1, 1970
+             -> URI -- ^ URI of resource
+preSignedURI a e =
+    let c = (s3conn a)
+        server = (awsHost c)
+        port = (show (awsPort c))
+        accessKeyQuery = "AWSAccessKeyId=" ++ (awsAccessKey c)
+        secretKey = (awsSecretKey c)
+        beginQuery = case (s3query a) of
+                  "" -> "?"
+                  x -> x ++ "&"
+        expireQuery = "Expires=" ++ (show e)
+        toSign = "GET\n\n\n" ++ (show e) ++ "\n/" ++ (s3bucket a) ++ "/" ++ (s3object a)
+        sigQuery = "Signature=" ++ (urlEncode (makeSignature c toSign))
+        query = beginQuery ++ accessKeyQuery ++ "&" ++
+                expireQuery ++ "&" ++ sigQuery
+    in URI { uriScheme = "http:",
+             uriAuthority = Just (URIAuth "" server (":" ++ port)),
+             uriPath = "/" ++ (s3bucket a) ++ "/" ++ (s3object a),
+             uriQuery = query,
+             uriFragment = ""
+           }
+
 
 -- | Inspect a response for network errors, HTTP error codes, and
 --   Amazon error messages.
