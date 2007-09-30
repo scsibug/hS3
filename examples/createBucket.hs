@@ -17,7 +17,6 @@
 -----------------------------------------------------------------------------
 
 import Network.AWS.S3Bucket
-import Network.AWS.S3Object
 import Network.AWS.AWSConnection
 import Network.AWS.AWSResult
 import System.Environment

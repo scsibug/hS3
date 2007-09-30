@@ -16,19 +16,19 @@
 --   AWS_ACCESS_KEY_SECRET
 -----------------------------------------------------------------------------
 
-import Bucket
-import S3Object
-import Authentication
-import S3Auth(aws_id, aws_key)
+import Network.AWS.S3Bucket
+import Network.AWS.S3Object
+import Network.AWS.AWSConnection
+import Network.AWS.AWSResult
 import System.Environment
-import AWSResult
-
-workingConn = AWSConnection defaultAmazonHost defaultAmazonPort aws_id aws_key
+import Data.Maybe
 
 main = do argv <- getArgs
+          mConn <- amazonS3ConnectionFromEnv
+          let conn = fromJust mConn
           let bucket : key : xs = argv
           let obj = S3Object bucket key "" [] ""
-          res <- deleteObject workingConn obj
+          res <- deleteObject conn obj
           either (putStrLn . prettyReqError)
                  (const $ putStrLn ("Key " ++ key ++ " has been removed, if it existed before."))
                  res

@@ -247,8 +247,8 @@ runAction a = do c <- openTCPPort (awsHost (s3conn a)) (awsPort (s3conn a))
                  createAWSResult result
 
 -- | Construct a pre-signed URI, but don't act on it.  This is useful
--- | for when an expiration date has been set, and the URI needs to be
--- | passed on to a client.
+--   for when an expiration date has been set, and the URI needs to be
+--   passed on to a client.
 preSignedURI :: S3Action -- ^ Action with resource
              -> Integer -- ^ Expiration time, in seconds since
                         --   00:00:00 UTC on January 1, 1970
