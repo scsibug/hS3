@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Program     :  Get Object
+-- Program     :  PreSigned Request
 -- Copyright   :  (c) Greg Heartsfield 2007
 -- License     :  BSD3
 --
