@@ -65,7 +65,7 @@ createBucketWithPrefix aws pre =
 
 randomName :: IO String
 randomName =
-    do rdata <- randomIO
+    do rdata <- randomIO :: IO Integer
        return $ take 10 $ show $ hexdumpBy "" 999
                   (hash (toOctets 10 (abs rdata)))
 
