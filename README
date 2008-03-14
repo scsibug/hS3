@@ -14,7 +14,11 @@ REQUIREMENTS
   version (>3000.0) is required, use the darcs repository.
 
 * Haskell Cryptographic Library <http://www.haskell.org/crypto/>, the
-  latest version (>4.0.3) is required, use the darcs repository.
+  latest version (>4.1.0) is required, use the darcs repository.
+
+* Dataenc library <http://hackage.haskell.org/cgi-bin/hackage-scripts/package/dataenc-0.10.2>.
+
+* UTF8-String library <http://code.haskell.org/utf8-string/>.
 
 * Haskell XML Toolbox (HXT) <http://www.fh-wedel.de/~si/HXmlToolbox/>,
   tested with version 7.3, earlier versions may work.
@@ -39,3 +43,4 @@ ACKNOWLEDGEMENTS
 
 * Jinesh Varia (Amazon Web Services Evangelist)
 
+* <harmen@millionmonkeys.nl> for UTF-8 header compatibility
