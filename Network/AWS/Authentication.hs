@@ -14,7 +14,9 @@ module Network.AWS.Authentication (
    -- * Function Types
    runAction, isAmzHeader, preSignedURI,
    -- * Data Types
-   S3Action(..)
+   S3Action(..),
+   -- * Misc functions
+   mimeEncodeQP, mimeDecode
    ) where
 
 import Network.AWS.AWSResult
@@ -27,7 +29,11 @@ import Data.HMAC
 import Codec.Binary.Base64 (encode, decode)
 import Codec.Utils (Octet)
 
-import Data.Char (ord, toLower)
+import Data.Char (isSpace, intToDigit, digitToInt, ord, chr, toLower)
+import Data.Bits ((.&.))
+import qualified Codec.Binary.UTF8.String as US
+import Codec.Utils (Octet)
+
 import Data.List (sortBy, groupBy, intersperse)
 import Data.Maybe
 
@@ -81,7 +87,7 @@ headersFromAction :: S3Action
                   -> [Header]
 headersFromAction a = map (\(k,v) -> case k of
                                        "Content-Type" -> Header HdrContentType v
-                                       otherwise -> (Header (HdrCustom k)) v)
+                                       otherwise -> (Header (HdrCustom k)) (mimeEncodeQP v))
                                             (s3metadata a)
 
 -- | Inspect HTTP body, and add a @Content-Length@ header with the
@@ -176,7 +182,7 @@ sortHeaders = sortBy (\a b -> (fst a) `compare` (fst b))
 
 -- | Make 'Header' easier to work with, and lowercase keys.
 headerToLCKeyValue :: Header -> (String, String)
-headerToLCKeyValue (Header k v) = (map toLower (show k), v)
+headerToLCKeyValue (Header k v) = (map toLower (show k), (mimeEncodeQP v))
 
 -- | Determine if a header belongs in the StringToSign
 isAmzHeader :: Header -> Bool
@@ -233,7 +239,7 @@ httpCurrentDate =
 
 -- | Convenience for dealing with HMAC-SHA1
 string2words :: String -> [Octet]
-string2words = map (fromIntegral . ord)
+string2words = US.encode
 
 -- | Construct the request specified by an S3Action, send to Amazon,
 --   and return the response.  Todo: add MD5 signature.
@@ -304,4 +310,45 @@ processRestError = deep (isElem >>> hasName "Error") >>>
                    second (text <<< atTag "Message") >>>
                    unsplit (\x y -> AWSError x y)
 
+--- mime header encoding
+mimeEncodeQP, mimeDecode :: String -> String
 
+-- | Decode a mime string, we only know about quoted printable UTF-8
+mimeDecode a =
+    if isPrefix utf8qp a
+        -- =?UTF-8?Q?....?= -> decoded UTF-8 string
+    then US.decodeString $ mimeDecode' $ reverse $ drop 2 $ reverse $ drop (length utf8qp) a
+    else a
+    where
+      utf8qp = "=?UTF-8?Q?"
+
+mimeDecode' :: String -> String
+mimeDecode' ('=':a:b:rest) =
+    chr (16 * digitToInt a + digitToInt b)
+            : mimeDecode' rest
+mimeDecode' (h:t) = h : mimeDecode' t
+mimeDecode' [] = []
+
+ -- | Encode a String into quoted printable, if needed.
+ --   eq: =?UTF-8?Q?=aa?=
+mimeEncodeQP s =
+    if (any (\x -> ord x > 128) s )
+    then "=?UTF-8?Q?" ++ (mimeEncodeQP' $ US.encodeString s) ++ "?="
+    else s
+
+mimeEncodeQP' :: String -> String
+mimeEncodeQP' (h:t) =
+    let str = if reserved (ord h) then escape h else [h]
+    in str ++ mimeEncodeQP' t
+    where
+        reserved x
+            | x >= ord 'a' && x <= ord 'z' = False
+            | x >= ord 'A' && x <= ord 'Z' = False
+            | x >= ord '0' && x <= ord '9' = False
+            | x == ord ' ' = False
+            | x <= 0x20 || x >= 0x7F = True
+            | otherwise = True
+        escape x =
+            let y = ord x in
+            [ '=', intToDigit ((y `div` 16) .&. 0xf), intToDigit (y .&. 0xf) ]
+mimeEncodeQP' [] = []

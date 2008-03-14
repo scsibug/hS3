@@ -23,8 +23,8 @@ extra-source-files: README, Tests.hs,
                     examples/getObject.hs
                     examples/listObjects.hs
                     examples/uploadFile.hs
-Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.0.3, hxt, network, 
-                regex-compat, old-time, random, old-locale
+Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.1.0, hxt, network,
+                regex-compat, old-time, random, old-locale, dataenc, utf8-string
 GHC-options: -O
 Exposed-modules:
         Network.AWS.S3Object,

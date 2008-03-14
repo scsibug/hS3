@@ -11,7 +11,7 @@
 
 module Network.AWS.S3Object (
   -- * Function Types
-  sendObject, getObject, deleteObject,
+  sendObject, getObject, getObjectInfo, deleteObject,
   publicUriForSeconds, publicUriUntilTime,
   -- * Data Types
   S3Object(..)
@@ -112,7 +112,7 @@ headersFromResponse :: Response -> [(String,String)]
 headersFromResponse r =
     let respheaders = rspHeaders r
     in map (\x -> case x of
-                    Header (HdrCustom name) val -> (name, val)
+                    Header (HdrCustom name) val -> (name, (mimeDecode val))
            ) (filter isAmzHeader respheaders)
 
 -- | Delete an object.  Only bucket and object name need to be
