@@ -329,8 +329,8 @@ mimeDecode' ('=':a:b:rest) =
 mimeDecode' (h:t) = h : mimeDecode' t
 mimeDecode' [] = []
 
- -- | Encode a String into quoted printable, if needed.
- --   eq: =?UTF-8?Q?=aa?=
+ -- Encode a String into quoted printable, if needed.
+ -- eq: =?UTF-8?Q?=aa?=
 mimeEncodeQP s =
     if (any (\x -> ord x > 128) s )
     then "=?UTF-8?Q?" ++ (mimeEncodeQP' $ US.encodeString s) ++ "?="

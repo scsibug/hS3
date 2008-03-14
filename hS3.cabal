@@ -1,12 +1,12 @@
 Name:           hS3
-Version:        0.2
+Version:        0.3
 License:        BSD3
 License-file:   LICENSE
 Copyright: 
   Copyright (c) 2007, Greg Heartsfield
 Author:         Greg Heartsfield <scsibug@imap.cc>
 Maintainer:     Greg Heartsfield <scsibug@imap.cc>
-Homepage:       http://scsibug.com/hS3/doc/
+Homepage:       http://gregheartsfield.com/repos/hS3/doc/
 Category:       Network, Web
 Stability:      Alpha
 Synopsis:       Interface to Amazon's Simple Storage Service (S3)
@@ -25,7 +25,7 @@ extra-source-files: README, Tests.hs,
                     examples/uploadFile.hs
 Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.1.0, hxt, network,
                 regex-compat, old-time, random, old-locale, dataenc, utf8-string
-GHC-options: -O
+Build-type:	Simple
 Exposed-modules:
         Network.AWS.S3Object,
         Network.AWS.S3Bucket,
