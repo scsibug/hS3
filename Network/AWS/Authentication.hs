@@ -153,15 +153,15 @@ canonicalizeAmzHeaders r =
 -- | Give the string representation of a (key,value) header pair.
 --   Uses rules for authenticated headers.
 showHeader :: (String, String) -> String
-showHeader (k,v) = k ++ ":" ++ removeLeadingWhitespace(fold_whitespace v)
+showHeader (k,v) = k ++ ":" ++ removeLeadingTrailingWhitespace(fold_whitespace v)
 
 -- | Replace CRLF followed by whitespace with a single space
 fold_whitespace :: String -> String
 fold_whitespace s = subRegex (mkRegex "\n\r( |\t)+") s " "
 
--- | strip leading tabs/spaces
-removeLeadingWhitespace :: String -> String
-removeLeadingWhitespace s = subRegex (mkRegex "^( |\t)+") s ""
+-- | strip leading/trailing whitespace
+removeLeadingTrailingWhitespace :: String -> String
+removeLeadingTrailingWhitespace s = subRegex (mkRegex "^\\s+") (subRegex (mkRegex "\\s+$") s "") ""
 
 -- | Combine same-named headers.
 combineHeaders :: [[(String, String)]] -> [(String, String)]
