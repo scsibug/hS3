@@ -288,6 +288,7 @@ createAWSResult b = either (handleError) (handleSuccess) b
     where handleError x = return (Left (NetworkError x))
           handleSuccess x = case (rspCode x) of
                               (2,y,z) -> return (Right x)
+                              (4,0,4) -> return (Left $ AWSError "NotFound" "404 Not Found")  -- no body, so no XML to parse
                               otherwise -> do err <- parseRestErrorXML (rspBody x)
                                               return (Left err)
 
