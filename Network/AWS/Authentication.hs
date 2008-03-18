@@ -182,7 +182,7 @@ sortHeaders = sortBy (\a b -> (fst a) `compare` (fst b))
 
 -- | Make 'Header' easier to work with, and lowercase keys.
 headerToLCKeyValue :: Header -> (String, String)
-headerToLCKeyValue (Header k v) = (map toLower (show k), (mimeEncodeQP v))
+headerToLCKeyValue (Header k v) = (map toLower (show k), v)
 
 -- | Determine if a header belongs in the StringToSign
 isAmzHeader :: Header -> Bool
@@ -333,23 +333,24 @@ mimeDecode' [] = []
  -- Encode a String into quoted printable, if needed.
  -- eq: =?UTF-8?Q?=aa?=
 mimeEncodeQP s =
-    if (any (\x -> ord x > 128) s )
+    if any reservedChar s
     then "=?UTF-8?Q?" ++ (mimeEncodeQP' $ US.encodeString s) ++ "?="
     else s
 
 mimeEncodeQP' :: String -> String
+mimeEncodeQP' [] = []
 mimeEncodeQP' (h:t) =
-    let str = if reserved (ord h) then escape h else [h]
+    let str = if reservedChar h then escape h else [h]
     in str ++ mimeEncodeQP' t
     where
-        reserved x
-            | x >= ord 'a' && x <= ord 'z' = False
-            | x >= ord 'A' && x <= ord 'Z' = False
-            | x >= ord '0' && x <= ord '9' = False
-            | x == ord ' ' = False
-            | x <= 0x20 || x >= 0x7F = True
-            | otherwise = True
         escape x =
             let y = ord x in
             [ '=', intToDigit ((y `div` 16) .&. 0xf), intToDigit (y .&. 0xf) ]
-mimeEncodeQP' [] = []
+
+-- Char needs escaping?
+reservedChar :: Char -> Bool
+reservedChar x
+    -- from space (0x20) till '~' everything is fine. The rest are control chars, or high bit.
+    | xi >= 0x20 && xi <= 0x7e = False
+    | otherwise = True
+    where xi = ord x
