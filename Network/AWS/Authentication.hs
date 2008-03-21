@@ -314,21 +314,37 @@ processRestError = deep (isElem >>> hasName "Error") >>>
 --- mime header encoding
 mimeEncodeQP, mimeDecode :: String -> String
 
--- | Decode a mime string, we only know about quoted printable UTF-8
-mimeDecode a =
-    if isPrefix utf8qp a
-        -- =?UTF-8?Q?....?= -> decoded UTF-8 string
-    then US.decodeString $ mimeDecode' $ reverse $ drop 2 $ reverse $ drop (length utf8qp) a
-    else a
+-- | Decode a mime string, we know about quoted printable and base64 encoded UTF-8
+-- S3 may convert quoted printable to base64
+mimeDecode a
+    | isPrefix utf8qp a =
+        mimeDecodeQP $ encoded_payload utf8qp a
+    | isPrefix utf8b64 a =
+        mimeDecodeB64 $ encoded_payload utf8b64 a
+    | otherwise =
+        a
     where
-      utf8qp = "=?UTF-8?Q?"
+      utf8qp  = "=?UTF-8?Q?"
+      utf8b64 = "=?UTF-8?B?"
+      -- '=?UTF-8?Q?foobar?=' -> 'foobar'
+      encoded_payload prefix = reverse . drop 2 . reverse . drop (length prefix)
 
-mimeDecode' :: String -> String
-mimeDecode' ('=':a:b:rest) =
+mimeDecodeQP :: String -> String
+mimeDecodeQP =
+    US.decodeString . mimeDecodeQP'
+
+mimeDecodeQP' :: String -> String
+mimeDecodeQP' ('=':a:b:rest) =
     chr (16 * digitToInt a + digitToInt b)
-            : mimeDecode' rest
-mimeDecode' (h:t) = h : mimeDecode' t
-mimeDecode' [] = []
+            : mimeDecodeQP' rest
+mimeDecodeQP' (h:t) =h : mimeDecodeQP' t
+mimeDecodeQP' [] = []
+
+mimeDecodeB64 :: String -> String
+mimeDecodeB64 s =
+    case decode s of
+        Nothing -> ""
+        Just a ->  US.decode a
 
  -- Encode a String into quoted printable, if needed.
  -- eq: =?UTF-8?Q?=aa?=

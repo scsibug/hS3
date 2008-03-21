@@ -29,7 +29,11 @@ tests =
 testBucket = "hS3-test"
 
 testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
-                     [("x-amz-meta-foo", "bar")] "Hello S3!"
+                     [("x-amz-meta-foo", "bar"),
+                      ("x-amz-meta-french", "Bonjour, ça va?"),
+                      ("x-amz-meta-smiley", "☺")
+                      ] "Hello S3!"
+
 
 -- | A sequence of several operations.
 s3operationsTest =
