@@ -41,12 +41,13 @@ s3operationsTest =
               do c <- getConn
                  -- Bucket Creation
                  bucket <- testCreateBucket c
+                 testGetBucketLocation c bucket "US"
                  let testObj = testObjectTemplate {obj_bucket = bucket}
                  -- Object send
                  testSendObject c testObj
                  -- Object get
                  testGetObject c testObj
-                 -- Object get info
+                 -- -- Object get info
                  testGetObjectInfo c testObj
                  -- Object list (should have 1 object in bucket)
                  testListAllObjects c bucket 1
@@ -59,6 +60,17 @@ s3operationsTest =
                  testListAllObjects c bucket 0
                  -- Delete bucket
                  testDeleteBucket c bucket
+                 -- Bucket should be gone
+                 testBucketGone c bucket
+
+                 -- Bucket in europe
+                 euBucket <- testCreateBucketIn c "EU"
+                 testGetBucketLocation c euBucket "EU"
+                 let euTestObj = testObjectTemplate {obj_bucket = euBucket}
+                 testSendObject c euTestObj
+                 testGetObject c euTestObj
+                 testDeleteObject c euTestObj
+                 testDeleteBucket c euBucket
              )
 
 failOnError :: (Show a) =>
@@ -76,6 +88,18 @@ testCreateBucket c =
        failOnError r "" (\x -> do assertBool "bucket creation" True
                                   return x
                         )
+
+testCreateBucketIn :: AWSConnection -> String -> IO String
+testCreateBucketIn c location =
+    do r <- createBucketWithPrefixIn c testBucket location
+       failOnError r "" (\x -> do assertBool ("bucket creation in " ++ location) True
+                                  return x
+                        )
+
+testGetBucketLocation :: AWSConnection -> String -> String -> IO ()
+testGetBucketLocation c bucket expectedLocation =
+    do r <- getBucketLocation c bucket
+       failOnError r () (\x -> do assertEqual ("Bucket in the " ++ expectedLocation) expectedLocation x)
 
 testSendObject :: AWSConnection -> S3Object -> IO ()
 testSendObject c o =
@@ -126,6 +150,15 @@ testDeleteBucket c bucket =
     do r <- deleteBucket c bucket
        failOnError r ()
               (const $ assertBool "bucket deletion" True)
+
+-- test if a bucket is not present
+testBucketGone :: AWSConnection -> String -> IO ()
+testBucketGone c bucket =
+    do r <- getBucketLocation c bucket
+       either (\(AWSError code msg) -> assertEqual "Bucket is gone" "NotFound" code)
+              (\x -> do assertFailure "Bucket still there, should be gone"
+                        return ())
+              r
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
              return (fromJust mConn)

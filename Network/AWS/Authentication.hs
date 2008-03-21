@@ -72,15 +72,15 @@ requestFromAction :: S3Action -- ^ Action to transform
 requestFromAction a =
     Request { rqURI = URI { uriScheme = "",
                             uriAuthority = Nothing,
-                            uriPath = canonicalizeResource a,
+                            uriPath = path,
                             uriQuery = s3query a,
                             uriFragment = "" },
               rqMethod = s3operation a,
-              rqHeaders = [Header HdrHost (awsHost (s3conn a))] ++
+              rqHeaders = [Header HdrHost (s3Hostname a)] ++
                           (headersFromAction a),
               rqBody = s3body a
             }
-    where path = (s3bucket a) ++ "/" ++ (s3object a)
+    where path = "/" ++ (s3object a)
 
 -- | Create 'Header' objects from an action.
 headersFromAction :: S3Action
@@ -109,7 +109,7 @@ makeSignature :: AWSConnection -- ^ Action with authentication data
               -> String -- ^ String to sign
               -> String -- ^ Base-64 encoded signature
 makeSignature c s =
-    encode (hmac_sha1 keyOctets msgOctets)
+        encode (hmac_sha1 keyOctets msgOctets)
         where keyOctets = string2words (awsSecretKey c)
               msgOctets = string2words s
 
@@ -201,14 +201,12 @@ amzHeader = "x-amz-"
 -- | Extract resource name, as required for signing.
 canonicalizeResource :: S3Action -> String
 canonicalizeResource a = bucket ++ uri
-    where uri = case (s3object a) of
-                  "" -> ""
-                  otherwise -> "/" ++ (s3object a)
+    where uri = "/" ++ (s3object a)
           bucket = case (s3bucket a) of
-                     b@(x:xs) -> "/" ++ b
-                     otherwise ->  case uri of
-                                     [] -> "/" -- at the least we have a "/"
-                                     otherwise -> ""
+                     b@(x:xs) -> "/" ++ map toLower b
+                     otherwise -> ""
+
+
 -- | Add a date string to a request.
 addDateToReq :: HTTP.Request -- ^ Request to modify
              -> String       -- ^ Date string, in RFC 2616 format
@@ -222,6 +220,14 @@ addExpirationToReq r e = addHeaderToReq r (HTTP.Header HTTP.HdrExpires e)
 
 addHeaderToReq :: HTTP.Request -> Header -> HTTP.Request
 addHeaderToReq r h = r {HTTP.rqHeaders = h : (HTTP.rqHeaders r)}
+
+-- | Get hostname to connect to. Needed for european buckets
+s3Hostname :: S3Action -> String
+s3Hostname a =
+    let s3host = awsHost (s3conn a) in
+    case (s3bucket a) of
+        b@(x:xs) -> b ++ "." ++ s3host
+        otherwise -> s3host
 
 -- | Get current time in HTTP 1.1 format (RFC 2616)
 --   Numeric time zones should be used, but I'd rather not subvert the
@@ -244,13 +250,17 @@ string2words = US.encode
 -- | Construct the request specified by an S3Action, send to Amazon,
 --   and return the response.  Todo: add MD5 signature.
 runAction :: S3Action -> IO (AWSResult Response)
-runAction a = do c <- openTCPPort (awsHost (s3conn a)) (awsPort (s3conn a))
-                 cd <- httpCurrentDate
-                 let aReq = addAuthenticationHeader a $
-                            addContentLengthHeader $
-                            addDateToReq (requestFromAction a) cd
-                 result <- (simpleHTTP_ c aReq)
-                 createAWSResult result
+runAction a = runAction' a (s3Hostname a)
+
+runAction' :: S3Action -> String -> IO (AWSResult Response)
+runAction' a hostname = do
+        c <- openTCPPort hostname (awsPort (s3conn a))
+        cd <- httpCurrentDate
+        let aReq = addAuthenticationHeader a $
+                   addContentLengthHeader $
+                   addDateToReq (requestFromAction a) cd
+        result <- (simpleHTTP_ c aReq)
+        createAWSResult a result
 
 -- | Construct a pre-signed URI, but don't act on it.  This is useful
 --   for when an expiration date has been set, and the URI needs to be
@@ -283,15 +293,26 @@ preSignedURI a e =
 
 -- | Inspect a response for network errors, HTTP error codes, and
 --   Amazon error messages.
-createAWSResult :: Result Response -> IO (AWSResult Response)
-createAWSResult b = either (handleError) (handleSuccess) b
+--   We need the original action in case we get a 307 (temporary redirect)
+createAWSResult :: S3Action -> Result Response -> IO (AWSResult Response)
+createAWSResult a b = either (handleError) (handleSuccess) b
     where handleError x = return (Left (NetworkError x))
           handleSuccess x = case (rspCode x) of
                               (2,y,z) -> return (Right x)
+                              -- temporary redirect
+                              (3,0,7) -> case (findHeader HdrLocation x) of
+                                                Just l -> runAction' a (getHostname l)
+                                                Nothing -> return (Left $ AWSError "Temporary Redirect" "Redirect without location header")  -- not good
                               (4,0,4) -> return (Left $ AWSError "NotFound" "404 Not Found")  -- no body, so no XML to parse
                               otherwise -> do err <- parseRestErrorXML (rspBody x)
                                               return (Left err)
-
+          -- Get hostname part from http url. Why does this need to be so tricky?
+          getHostname :: String -> String
+          getHostname a = case parseURI a of
+                             Just u -> case (uriAuthority u) of
+                                           Just auth -> (uriRegName auth)
+                                           Nothing -> ""
+                             Nothing -> ""
 -- | Find the errors embedded in an XML message body from Amazon.
 parseRestErrorXML :: String -> IO ReqError
 parseRestErrorXML x =

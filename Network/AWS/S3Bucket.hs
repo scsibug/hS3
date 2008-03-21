@@ -11,8 +11,8 @@
 
 module Network.AWS.S3Bucket (
                -- * Function Types
-               createBucket, createBucketWithPrefix, deleteBucket,
-               emptyBucket, listBuckets, listObjects, listAllObjects,
+               createBucketIn, createBucket, createBucketWithPrefixIn, createBucketWithPrefix, deleteBucket,
+               getBucketLocation, emptyBucket, listBuckets, listObjects, listAllObjects,
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
@@ -48,20 +48,28 @@ data S3Bucket = S3Bucket { bucket_name :: String,
 -- | Create a new bucket on S3 with the given prefix, and a random
 --   suffix.  This can be used to programatically create buckets
 --   without of naming conflicts.
-createBucketWithPrefix :: AWSConnection -- ^ AWS connection information
+createBucketWithPrefixIn :: AWSConnection -- ^ AWS connection information
                        -> String -- ^ Bucket name prefix
+                       -> String -- ^ "US" or "EU"
                        -> IO (AWSResult String) -- ^ Server response, if
                                                 --   successful, the bucket
                                                 --   name is returned.
 
-createBucketWithPrefix aws pre =
+createBucketWithPrefixIn aws pre location =
     do suffix <- randomName
        let name = pre ++ "-" ++ suffix
-       res <- createBucket aws name
+       res <- createBucketIn aws name location
        either (\x -> case x of
-                       AWSError c m -> createBucketWithPrefix aws pre
+                       AWSError c m -> createBucketWithPrefixIn aws pre location
                        otherwise -> return (Left x))
                   (\x -> return (Right name)) res
+
+-- | see createBucketWithPrefixIn, but hardcoded for the US
+createBucketWithPrefix :: AWSConnection -- ^ AWS connection information
+                       -> String -- ^ Bucket name prefix
+                       -> IO (AWSResult String) -- ^ Server response, with bucket name
+createBucketWithPrefix aws pre =
+    createBucketWithPrefixIn aws pre "US"
 
 randomName :: IO String
 randomName =
@@ -70,13 +78,47 @@ randomName =
                   (hash (toOctets 10 (abs rdata)))
 
 -- | Create a new bucket on S3 with the given name.
+createBucketIn :: AWSConnection -- ^ AWS connection information
+             -> String -- ^ Proposed bucket name
+             -> String -- ^ "US" or "EU"
+             -> IO (AWSResult ()) -- ^ Server response
+createBucketIn aws bucket location =
+    let constraint = if location == "US"
+                        then "" -- US == no body
+                        else "<CreateBucketConfiguration><LocationConstraint>" ++ location ++ "</LocationConstraint></CreateBucketConfiguration>"
+    in
+    do res <- Auth.runAction (S3Action aws bucket "" "" [] constraint PUT)
+       -- throw away the server response, return () on success
+       return (either (Left) (\x -> Right ()) res)
+
+-- | Create a new bucket on S3 with the given name.
 createBucket :: AWSConnection -- ^ AWS connection information
              -> String -- ^ Proposed bucket name
              -> IO (AWSResult ()) -- ^ Server response
 createBucket aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "" "" [] "" PUT)
-       -- throw away the server response, return () on success
-       return (either (Left) (\x -> Right ()) res)
+    createBucketIn aws bucket "US"
+
+-- | Physical location of the bucket. "US" or "EU"
+getBucketLocation :: AWSConnection  -- ^ AWS connection information
+                  -> String  -- ^ Bucket name
+                  -> IO (AWSResult String) -- ^ Server response ("US" or "EU")
+getBucketLocation aws bucket =
+    do res <- Auth.runAction (S3Action aws bucket "?location" "" [] "" GET)
+       case res of
+         Left x -> do return (Left x)
+         Right y -> do bs <- parseBucketLocationXML (rspBody y)
+                       return (Right bs)
+
+
+parseBucketLocationXML :: String -> IO String
+parseBucketLocationXML s =
+    do results <- runX (readString [(a_validate,v_0)] s >>> processLocation)
+       return $ case results of
+                  [] -> "US"    -- not specified by S3, but they are in the US
+                  x:xs -> x
+
+processLocation = (text <<< atTag "LocationConstraint")
+                    >>> arr (\x -> x)
 
 -- | Delete a bucket with the given name on S3.  The bucket must be
 --   empty for deletion to succeed.
