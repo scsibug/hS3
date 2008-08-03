@@ -2,6 +2,7 @@ Name:           hS3
 Version:        0.3
 License:        BSD3
 License-file:   LICENSE
+Cabal-Version: >= 1.2
 Copyright: 
   Copyright (c) 2007, Greg Heartsfield
 Author:         Greg Heartsfield <scsibug@imap.cc>
@@ -23,13 +24,19 @@ extra-source-files: README, Tests.hs,
                     examples/getObject.hs
                     examples/listObjects.hs
                     examples/uploadFile.hs
-Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.1.0, hxt, network,
+
+Library
+
+  Build-depends:  base, HTTP >= 3000.0.0, Crypto >= 4.1.0, hxt, network,
                 regex-compat, old-time, random, old-locale, dataenc, utf8-string
-Build-type:	Simple
-Exposed-modules:
+
+  Exposed-modules:
         Network.AWS.S3Object,
         Network.AWS.S3Bucket,
         Network.AWS.AWSResult,
         Network.AWS.AWSConnection,
         Network.AWS.Authentication,
         Network.AWS.ArrowUtils
+
+Executable     hs3
+  main-is:        hS3.hs
