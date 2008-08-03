@@ -24,6 +24,7 @@ withConn f = do
                     id ) $ f c
     Nothing -> error "couldn't connect"
 
+main :: IO ()
 main = do
   args <- getArgs
   case args of
@@ -31,11 +32,11 @@ main = do
     ["cb", name, location] -> withConn $ \g -> createBucketIn g name location
     ["db", name ] ->  withConn $ \g -> deleteBucket g name
     -- objects
-    ["go", bucket, key ] ->
-        do c <- withConn $ \g -> getObject g $ S3Object bucket key "" [] ""
+    ["go", bucket, gkey ] ->
+        do c <- withConn $ \g -> getObject g $ S3Object bucket gkey "" [] ""
            putStr $ obj_data c
-    ["so", bucket, key ] ->
-        (\c ->  withConn $ \g -> sendObject g $ S3Object bucket key "" [] c)
+    ["so", bucket, skey ] ->
+        (\c ->  withConn $ \g -> sendObject g $ S3Object bucket skey "" [] c)
             =<< getContents
     ["los", bucket] ->
         do l <- withConn $ \g -> listObjects g bucket (ListRequest "" "" "" 1000)
@@ -44,6 +45,7 @@ main = do
                   print l
     _ -> usage
 
+usage :: IO ()
 usage = putStr $ unlines [
          "export AWS_ACCESS_KEY_ID and AWS_ACCESS_KEY_SECRET"
         , ""

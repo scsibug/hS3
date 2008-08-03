@@ -11,8 +11,9 @@
 
 module Network.AWS.S3Bucket (
                -- * Function Types
-               createBucketIn, createBucket, createBucketWithPrefixIn, createBucketWithPrefix, deleteBucket,
-               getBucketLocation, emptyBucket, listBuckets, listObjects, listAllObjects,
+               createBucketIn, createBucket, createBucketWithPrefixIn,
+               createBucketWithPrefix, deleteBucket, getBucketLocation,
+               emptyBucket, listBuckets, listObjects, listAllObjects,
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
@@ -27,12 +28,12 @@ import Network.AWS.AWSConnection
 import Network.AWS.ArrowUtils
 
 import Network.HTTP as HTTP
-import Network.URI as URI
-import Network.Stream
+import Network.Stream()
 
 import Data.Char (toLower)
 
 import Text.XML.HXT.Arrow
+import qualified Data.Tree.NTree.TypeDefs
 import Control.Arrow
 
 import Control.Monad
@@ -54,15 +55,14 @@ createBucketWithPrefixIn :: AWSConnection -- ^ AWS connection information
                        -> IO (AWSResult String) -- ^ Server response, if
                                                 --   successful, the bucket
                                                 --   name is returned.
-
 createBucketWithPrefixIn aws pre location =
     do suffix <- randomName
        let name = pre ++ "-" ++ suffix
        res <- createBucketIn aws name location
        either (\x -> case x of
-                       AWSError c m -> createBucketWithPrefixIn aws pre location
+                       AWSError _ _ -> createBucketWithPrefixIn aws pre location
                        otherwise -> return (Left x))
-                  (\x -> return (Right name)) res
+                  (\_ -> return (Right name)) res
 
 -- | see createBucketWithPrefixIn, but hardcoded for the US
 createBucketWithPrefix :: AWSConnection -- ^ AWS connection information
@@ -75,7 +75,7 @@ randomName :: IO String
 randomName =
     do rdata <- randomIO :: IO Integer
        return $ take 10 $ show $ hexdumpBy "" 999
-                  (hash (toOctets 10 (abs rdata)))
+                  (hash (toOctets (10::Integer) (abs rdata)))
 
 -- | Create a new bucket on S3 with the given name.
 createBucketIn :: AWSConnection -- ^ AWS connection information
@@ -89,7 +89,7 @@ createBucketIn aws bucket location =
     in
     do res <- Auth.runAction (S3Action aws bucket "" "" [] constraint PUT)
        -- throw away the server response, return () on success
-       return (either (Left) (\x -> Right ()) res)
+       return (either (Left) (\_ -> Right ()) res)
 
 -- | Create a new bucket on S3 with the given name.
 createBucket :: AWSConnection -- ^ AWS connection information
@@ -115,8 +115,9 @@ parseBucketLocationXML s =
     do results <- runX (readString [(a_validate,v_0)] s >>> processLocation)
        return $ case results of
                   [] -> "US"    -- not specified by S3, but they are in the US
-                  x:xs -> x
+                  x:_ -> x
 
+processLocation :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) String
 processLocation = (text <<< atTag "LocationConstraint")
                     >>> arr (\x -> x)
 
@@ -127,7 +128,7 @@ deleteBucket :: AWSConnection -- ^ AWS connection information
              -> IO (AWSResult ()) -- ^ Server response
 deleteBucket aws bucket =
     do res <- Auth.runAction (S3Action aws bucket "" "" [] "" DELETE)
-       return (either (Left) (\x -> Right ()) res)
+       return (either (Left) (\_ -> Right ()) res)
 
 -- | Empty a bucket of all objects.  Iterates through all objects
 --   issuing delete commands, so time is proportional to number of
@@ -151,8 +152,8 @@ deleteObjects _ [] = return (Right ())
 deleteObjects aws (x:xs) =
     do dr <- deleteObject aws x
        case dr of
-         Left x -> return (Left x)
-         Right x -> deleteObjects aws xs
+         Left o -> return (Left o)
+         Right _ -> deleteObjects aws xs
 
 -- | Return a list of all bucket names and creation dates.  S3
 --   allows a maximum of 100 buckets per user.
@@ -168,6 +169,7 @@ listBuckets aws =
 parseBucketListXML :: String -> IO [S3Bucket]
 parseBucketListXML x = runX (readString [(a_validate,v_0)] x >>> processBuckets)
 
+processBuckets :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) S3Bucket
 processBuckets = deep (isElem >>> hasName "Bucket") >>>
                  split >>> first (text <<< atTag "Name") >>>
                  second (text <<< atTag "CreationDate") >>>
@@ -243,8 +245,9 @@ isListTruncated s =
     do results <- runX (readString [(a_validate,v_0)] s >>> processTruncation)
        return $ case results of
                   [] -> False
-                  x:xs -> x
+                  x:_ -> x
 
+processTruncation :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) Bool
 processTruncation = (text <<< atTag "IsTruncated")
                     >>> arr (\x -> case (map toLower x) of
                                      "true" -> True
@@ -255,7 +258,7 @@ processTruncation = (text <<< atTag "IsTruncated")
 getListResults :: String -> IO [ListResult]
 getListResults s = runX (readString [(a_validate,v_0)] s >>> processListResults)
 
--- | Learning arrows on the job.
+processListResults :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) ListResult
 processListResults = deep (isElem >>> hasName "Contents") >>>
                      ((text <<< atTag "Key") &&&
                       (text <<< atTag "LastModified") &&&

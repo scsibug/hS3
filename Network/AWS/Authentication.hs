@@ -29,10 +29,9 @@ import Data.HMAC
 import Codec.Binary.Base64 (encode, decode)
 import Codec.Utils (Octet)
 
-import Data.Char (isSpace, intToDigit, digitToInt, ord, chr, toLower)
+import Data.Char (intToDigit, digitToInt, ord, chr, toLower)
 import Data.Bits ((.&.))
 import qualified Codec.Binary.UTF8.String as US
-import Codec.Utils (Octet)
 
 import Data.List (sortBy, groupBy, intersperse)
 import Data.Maybe
@@ -42,7 +41,7 @@ import System.Locale
 
 import Text.Regex
 
-import Control.Arrow
+--import Control.Arrow()
 import Text.XML.HXT.Arrow
 
 -- | An action to be performed using S3.
@@ -72,7 +71,7 @@ requestFromAction :: S3Action -- ^ Action to transform
 requestFromAction a =
     Request { rqURI = URI { uriScheme = "",
                             uriAuthority = Nothing,
-                            uriPath = path,
+                            uriPath = qpath,
                             uriQuery = s3query a,
                             uriFragment = "" },
               rqMethod = s3operation a,
@@ -80,7 +79,7 @@ requestFromAction a =
                           (headersFromAction a),
               rqBody = s3body a
             }
-    where path = "/" ++ (s3object a)
+    where qpath = "/" ++ (s3object a)
 
 -- | Create 'Header' objects from an action.
 headersFromAction :: S3Action
@@ -169,7 +168,7 @@ combineHeaders h = map mergeSameHeaders h
 
 -- | Headers with same name should have values merged.
 mergeSameHeaders :: [(String, String)] -> (String, String)
-mergeSameHeaders h@(x:xs) = let values = map snd h
+mergeSameHeaders h@(x:_) = let values = map snd h
                      in ((fst x), (concat $ intersperse "," values))
 
 -- | Group headers with the same name.
@@ -188,7 +187,7 @@ headerToLCKeyValue (Header k v) = (map toLower (show k), v)
 isAmzHeader :: Header -> Bool
 isAmzHeader h =
     case h of
-      Header (HdrCustom k) v -> isPrefix amzHeader k
+      Header (HdrCustom k) _ -> isPrefix amzHeader k
       otherwise -> False
 
 -- | is the first list a prefix of the second?
@@ -196,6 +195,7 @@ isPrefix :: Eq a => [a] -> [a] -> Bool
 isPrefix a b = a == take (length a) b
 
 -- | Prefix used by Amazon metadata headers
+amzHeader :: String
 amzHeader = "x-amz-"
 
 -- | Extract resource name, as required for signing.
@@ -203,7 +203,7 @@ canonicalizeResource :: S3Action -> String
 canonicalizeResource a = bucket ++ uri
     where uri = "/" ++ (s3object a)
           bucket = case (s3bucket a) of
-                     b@(x:xs) -> "/" ++ map toLower b
+                     b@(_:_) -> "/" ++ map toLower b
                      otherwise -> ""
 
 
@@ -214,10 +214,11 @@ addDateToReq :: HTTP.Request -- ^ Request to modify
 addDateToReq r d = r {HTTP.rqHeaders =
                           (HTTP.Header HTTP.HdrDate d) : (HTTP.rqHeaders r)}
 
--- | Add an expiration date to a request
+-- | Add an expiration date to a request.
 addExpirationToReq :: HTTP.Request -> String -> HTTP.Request
 addExpirationToReq r e = addHeaderToReq r (HTTP.Header HTTP.HdrExpires e)
 
+-- | Attach an HTTP header to a request.
 addHeaderToReq :: HTTP.Request -> Header -> HTTP.Request
 addHeaderToReq r h = r {HTTP.rqHeaders = h : (HTTP.rqHeaders r)}
 
@@ -226,7 +227,7 @@ s3Hostname :: S3Action -> String
 s3Hostname a =
     let s3host = awsHost (s3conn a) in
     case (s3bucket a) of
-        b@(x:xs) -> b ++ "." ++ s3host
+        b@(_:_) -> b ++ "." ++ s3host
         otherwise -> s3host
 
 -- | Get current time in HTTP 1.1 format (RFC 2616)
@@ -271,22 +272,21 @@ preSignedURI :: S3Action -- ^ Action with resource
              -> URI -- ^ URI of resource
 preSignedURI a e =
     let c = (s3conn a)
-        server = (awsHost c)
-        port = (show (awsPort c))
+        srv = (awsHost c)
+        pt = (show (awsPort c))
         accessKeyQuery = "AWSAccessKeyId=" ++ (awsAccessKey c)
-        secretKey = (awsSecretKey c)
         beginQuery = case (s3query a) of
                   "" -> "?"
                   x -> x ++ "&"
         expireQuery = "Expires=" ++ (show e)
         toSign = "GET\n\n\n" ++ (show e) ++ "\n/" ++ (s3bucket a) ++ "/" ++ (s3object a)
         sigQuery = "Signature=" ++ (urlEncode (makeSignature c toSign))
-        query = beginQuery ++ accessKeyQuery ++ "&" ++
+        q = beginQuery ++ accessKeyQuery ++ "&" ++
                 expireQuery ++ "&" ++ sigQuery
     in URI { uriScheme = "http:",
-             uriAuthority = Just (URIAuth "" server (":" ++ port)),
+             uriAuthority = Just (URIAuth "" srv (":" ++ pt)),
              uriPath = "/" ++ (s3bucket a) ++ "/" ++ (s3object a),
-             uriQuery = query,
+             uriQuery = q,
              uriFragment = ""
            }
 
@@ -296,19 +296,19 @@ preSignedURI a e =
 --   We need the original action in case we get a 307 (temporary redirect)
 createAWSResult :: S3Action -> Result Response -> IO (AWSResult Response)
 createAWSResult a b = either (handleError) (handleSuccess) b
-    where handleError x = return (Left (NetworkError x))
-          handleSuccess x = case (rspCode x) of
-                              (2,y,z) -> return (Right x)
+    where handleError e = return (Left (NetworkError e))
+          handleSuccess s = case (rspCode s) of
+                              (2,_,_) -> return (Right s)
                               -- temporary redirect
-                              (3,0,7) -> case (findHeader HdrLocation x) of
+                              (3,0,7) -> case (findHeader HdrLocation s) of
                                                 Just l -> runAction' a (getHostname l)
                                                 Nothing -> return (Left $ AWSError "Temporary Redirect" "Redirect without location header")  -- not good
                               (4,0,4) -> return (Left $ AWSError "NotFound" "404 Not Found")  -- no body, so no XML to parse
-                              otherwise -> do err <- parseRestErrorXML (rspBody x)
-                                              return (Left err)
-          -- Get hostname part from http url. Why does this need to be so tricky?
+                              otherwise -> do e <- parseRestErrorXML (rspBody s)
+                                              return (Left e)
+          -- Get hostname part from http url.
           getHostname :: String -> String
-          getHostname a = case parseURI a of
+          getHostname h = case parseURI h of
                              Just u -> case (uriAuthority u) of
                                            Just auth -> (uriRegName auth)
                                            Nothing -> ""

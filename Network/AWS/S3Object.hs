@@ -55,7 +55,7 @@ sendObject aws obj =
                               (("Content-Type", (content_type obj)) :
                                (obj_headers obj))
                               (obj_data obj) PUT)
-       return (either (Left) (\x -> Right ()) res)
+       return (either (Left) (\_ -> Right ()) res)
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
 --   an object until the specified date.
@@ -126,6 +126,6 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
                                                               ""
                                                               (obj_headers obj)
                                                               "" DELETE)
-                          return (either (Left) (\x -> Right ()) res)
+                          return (either (Left) (\_ -> Right ()) res)
 
 
