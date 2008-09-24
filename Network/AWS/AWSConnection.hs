@@ -42,15 +42,18 @@ amazonS3Connection :: String -- ^ Access Key ID
 amazonS3Connection = AWSConnection defaultAmazonS3Host defaultAmazonS3Port
 
 -- | Retrieve Access and Secret keys from environment variables
---   AWS_ACCESS_KEY_ID and AWS_ACCESS_KEY_SECRET, respectively.
+--   AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, respectively.
 --   Either variable being undefined or empty will result in
 --   'Nothing'.
 amazonS3ConnectionFromEnv :: IO (Maybe AWSConnection)
 amazonS3ConnectionFromEnv =
     do ak <- getEnvKey "AWS_ACCESS_KEY_ID"
-       sk <- getEnvKey "AWS_ACCESS_KEY_SECRET"
-       return $ case ((null ak) || (null sk)) of
-                  True -> Nothing
-                  False -> Just (amazonS3Connection ak sk)
+       sk0 <- getEnvKey "AWS_ACCESS_KEY_SECRET"
+       sk1 <- getEnvKey "AWS_SECRET_ACCESS_KEY"
+       return $ case (ak, sk0, sk1) of
+                  ("",  _,  _) -> Nothing
+                  ( _, "", "") -> Nothing
+                  ( _, "",  _) -> Just (amazonS3Connection ak sk1)
+                  ( _,  _,  _) -> Just (amazonS3Connection ak sk0)
     where getEnvKey s = do catch (getEnv s) (const $ return "")
 
