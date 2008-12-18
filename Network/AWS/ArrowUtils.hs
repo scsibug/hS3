@@ -1,4 +1,4 @@
-{-# OPTIONS -fno-monomorphism-restriction #-}
+{-# LANGUAGE NoMonomorphismRestriction#-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Network.AWS.ArrowUtils
