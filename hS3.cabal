@@ -10,6 +10,7 @@ Maintainer:     Greg Heartsfield <scsibug@imap.cc>
 Homepage:       http://gregheartsfield.com/repos/hS3/doc/
 Category:       Network, Web
 Stability:      Alpha
+build-type:     Simple
 Synopsis:       Interface to Amazon's Simple Storage Service (S3)
 Description:    This is the Haskell S3 library.  It provides an
                 interface to Amazon's Simple Storage Service (S3), allowing Haskell
