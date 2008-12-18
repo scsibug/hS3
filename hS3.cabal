@@ -4,7 +4,7 @@ License:        BSD3
 License-file:   LICENSE
 Cabal-Version: >= 1.2
 Copyright: 
-  Copyright (c) 2007, Greg Heartsfield
+  Copyright (c) 2008, Greg Heartsfield
 Author:         Greg Heartsfield <scsibug@imap.cc>
 Maintainer:     Greg Heartsfield <scsibug@imap.cc>
 Homepage:       http://gregheartsfield.com/repos/hS3/doc/
