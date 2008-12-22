@@ -9,7 +9,7 @@
 -- Create a new public object with some content.  This can be viewed through
 -- a web browser afterwards by visiting http://bucket.s3.amazonaws.com/object
 -- Usage:
---    listObjects.hs bucket-name object-name "Some Object Content."
+--    sendObject.hs bucket-name object-name "Some Object Content."
 --
 -- This requires the following environment variables to be set with
 -- your Amazon keys:
