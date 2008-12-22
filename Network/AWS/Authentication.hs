@@ -23,6 +23,7 @@ import Network.AWS.AWSResult
 import Network.AWS.AWSConnection
 import Network.AWS.ArrowUtils
 import Network.HTTP as HTTP
+import Network.Stream (Result)
 import Network.URI as URI
 
 import Data.HMAC
@@ -255,12 +256,13 @@ runAction a = runAction' a (s3Hostname a)
 
 runAction' :: S3Action -> String -> IO (AWSResult Response)
 runAction' a hostname = do
-        c <- openTCPPort hostname (awsPort (s3conn a))
+        c <- openTCPConnection hostname (awsPort (s3conn a))
         cd <- httpCurrentDate
         let aReq = addAuthenticationHeader a $
                    addContentLengthHeader $
                    addDateToReq (requestFromAction a) cd
-        result <- (simpleHTTP_ c aReq)
+        result <- simpleHTTP_ c aReq
+        close c
         createAWSResult a result
 
 -- | Construct a pre-signed URI, but don't act on it.  This is useful
