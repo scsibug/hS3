@@ -17,6 +17,7 @@ import Network.AWS.AWSResult
 import Network.AWS.S3Object
 import Network.AWS.S3Bucket
 import Data.Maybe (fromJust)
+import qualified Data.ByteString.Lazy.Char8 as L
 
 import Test.HUnit
 
@@ -32,7 +33,7 @@ testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
                      [("x-amz-meta-foo", "bar"),
                       ("x-amz-meta-french", "Bonjour, ça va?"),
                       ("x-amz-meta-smiley", "☺")
-                      ] "Hello S3!"
+                      ] (L.pack "Hello S3!")
 
 
 -- | A sequence of several operations.
