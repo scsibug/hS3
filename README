@@ -10,11 +10,11 @@ REQUIREMENTS
 
 * Glasgow Haskell Compiler (GHC).  Other compilers are untested.
 
-* Haskell HTTP Library <http://www.haskell.org/http/>, the latest
-  version (>3000.0) is required, use the darcs repository.
+* Haskell HTTP Library <http://www.haskell.org/http/>, at least
+  version 4000.0 is required.
 
-* Haskell Cryptographic Library <http://www.haskell.org/crypto/>, the
-  latest version (>4.1.0) is required, use the darcs repository.
+* Haskell Cryptographic Library <http://www.haskell.org/crypto/>, at
+  least version 4.1.0 is required.
 
 * Dataenc library <http://hackage.haskell.org/cgi-bin/hackage-scripts/package/dataenc-0.10.2>.
 
@@ -41,6 +41,7 @@ ACKNOWLEDGEMENTS
 
 * Authors and contributors to the HTTP, Crypto, and HXT projects.
 
-* Jinesh Varia (Amazon Web Services Evangelist)
+* Jinesh Varia (Amazon Web Services Evangelist).
 
-* <harmen@millionmonkeys.nl> for UTF-8 header compatibility
+* <harmen@millionmonkeys.nl> for UTF-8 header compatibility and support for EU buckets.
+
