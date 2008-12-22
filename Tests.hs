@@ -47,7 +47,7 @@ s3operationsTest =
                  testSendObject c testObj
                  -- Object get
                  testGetObject c testObj
-                 -- -- Object get info
+                 -- Object get info
                  testGetObjectInfo c testObj
                  -- Object list (should have 1 object in bucket)
                  testListAllObjects c bucket 1
