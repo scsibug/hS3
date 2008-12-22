@@ -45,3 +45,4 @@ ACKNOWLEDGEMENTS
 
 * <harmen@millionmonkeys.nl> for UTF-8 header compatibility and support for EU buckets.
 
+* Marc Weber <marco-oweber@gmx.de> for the hS3 command line tool.
