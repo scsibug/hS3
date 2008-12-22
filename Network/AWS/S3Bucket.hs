@@ -30,6 +30,8 @@ import Network.AWS.ArrowUtils
 import Network.HTTP as HTTP
 import Network.Stream()
 
+import qualified Data.ByteString.Lazy.Char8 as L
+
 import Data.Char (toLower)
 
 import Text.XML.HXT.Arrow
@@ -87,7 +89,7 @@ createBucketIn aws bucket location =
                         then "" -- US == no body
                         else "<CreateBucketConfiguration><LocationConstraint>" ++ location ++ "</LocationConstraint></CreateBucketConfiguration>"
     in
-    do res <- Auth.runAction (S3Action aws bucket "" "" [] constraint PUT)
+    do res <- Auth.runAction (S3Action aws bucket "" "" [] (L.pack constraint) PUT)
        -- throw away the server response, return () on success
        return (either (Left) (\_ -> Right ()) res)
 
@@ -103,10 +105,10 @@ getBucketLocation :: AWSConnection  -- ^ AWS connection information
                   -> String  -- ^ Bucket name
                   -> IO (AWSResult String) -- ^ Server response ("US" or "EU")
 getBucketLocation aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "?location" "" [] "" GET)
+    do res <- Auth.runAction (S3Action aws bucket "?location" "" [] L.empty GET)
        case res of
          Left x -> do return (Left x)
-         Right y -> do bs <- parseBucketLocationXML (rspBody y)
+         Right y -> do bs <- parseBucketLocationXML (L.unpack (rspBody y))
                        return (Right bs)
 
 
@@ -127,7 +129,7 @@ deleteBucket :: AWSConnection -- ^ AWS connection information
              -> String -- ^ Bucket name to delete
              -> IO (AWSResult ()) -- ^ Server response
 deleteBucket aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "" "" [] "" DELETE)
+    do res <- Auth.runAction (S3Action aws bucket "" "" [] L.empty DELETE)
        return (either (Left) (\_ -> Right ()) res)
 
 -- | Empty a bucket of all objects.  Iterates through all objects
@@ -139,7 +141,7 @@ emptyBucket :: AWSConnection -- ^ AWS connection information
             -> IO (AWSResult ()) -- ^ Server response
 emptyBucket aws bucket =
     do res <- listAllObjects aws bucket (ListRequest "" ""  "" 0)
-       let objFromRes x = S3Object bucket (key x) "" [] ""
+       let objFromRes x = S3Object bucket (key x) "" [] L.empty
        case res of
          Left x -> return (Left x)
          Right y -> deleteObjects aws (map objFromRes y)
@@ -160,10 +162,10 @@ deleteObjects aws (x:xs) =
 listBuckets :: AWSConnection -- ^ AWS connection information
            -> IO (AWSResult [S3Bucket]) -- ^ Server response
 listBuckets aws =
-    do res <- Auth.runAction (S3Action aws "" "" "" [] "" GET)
+    do res <- Auth.runAction (S3Action aws "" "" "" [] L.empty GET)
        case res of
          Left x -> do return (Left x)
-         Right y -> do bs <- parseBucketListXML (rspBody y)
+         Right y -> do bs <- parseBucketListXML (L.unpack (rspBody y))
                        return (Right bs)
 
 parseBucketListXML :: String -> IO [S3Bucket]
@@ -211,10 +213,10 @@ listObjects :: AWSConnection -- ^ AWS connection information
             -> IO (AWSResult (IsTruncated, [ListResult])) -- ^ Server response
 listObjects aws bucket lreq =
     do res <- Auth.runAction (S3Action aws bucket ""
-                                           ("?" ++ (show lreq)) [] "" GET)
+                                           ("?" ++ (show lreq)) [] L.empty GET)
        case res of
          Left x -> do return (Left x)
-         Right y -> do let objs = rspBody y
+         Right y -> do let objs = L.unpack (rspBody y)
                        tr <- isListTruncated objs
                        lr <- getListResults objs
                        return (Right (tr, lr))

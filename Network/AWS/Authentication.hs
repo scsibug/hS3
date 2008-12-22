@@ -23,8 +23,12 @@ import Network.AWS.AWSResult
 import Network.AWS.AWSConnection
 import Network.AWS.ArrowUtils
 import Network.HTTP as HTTP
+import Network.HTTP.HandleStream (simpleHTTP_)
 import Network.Stream (Result)
 import Network.URI as URI
+import qualified Data.ByteString.Lazy.Char8 as L
+
+import Data.ByteString.Char8 (pack, unpack)
 
 import Data.HMAC
 import Codec.Binary.Base64 (encode, decode)
@@ -59,7 +63,7 @@ data S3Action =
       -- | Additional header fields to send
       s3metadata :: [(String, String)],
       -- | Body of action, if sending data
-      s3body :: String,
+      s3body :: L.ByteString,
       -- | Type of action, 'PUT', 'GET', etc.
       s3operation :: RequestMethod
     } deriving (Show)
@@ -68,7 +72,7 @@ data S3Action =
 --   authentication or date information, so it is not suitable for
 --   sending directly to AWS.
 requestFromAction :: S3Action -- ^ Action to transform
-                  -> HTTP.Request -- ^ Action represented as an HTTP Request.
+                  -> HTTP.HTTPRequest L.ByteString -- ^ Action represented as an HTTP Request.
 requestFromAction a =
     Request { rqURI = URI { uriScheme = "",
                             uriAuthority = Nothing,
@@ -78,7 +82,7 @@ requestFromAction a =
               rqMethod = s3operation a,
               rqHeaders = [Header HdrHost (s3Hostname a)] ++
                           (headersFromAction a),
-              rqBody = s3body a
+              rqBody = (s3body a)
             }
     where qpath = "/" ++ (s3object a)
 
@@ -92,13 +96,13 @@ headersFromAction a = map (\(k,v) -> case k of
 
 -- | Inspect HTTP body, and add a @Content-Length@ header with the
 --   correct length.
-addContentLengthHeader :: HTTP.Request -> HTTP.Request
-addContentLengthHeader req = insertHeader HdrContentLength (show (length (rqBody req))) req
+addContentLengthHeader :: HTTP.HTTPRequest L.ByteString -> HTTP.HTTPRequest L.ByteString
+addContentLengthHeader req = insertHeader HdrContentLength (show (L.length (rqBody req))) req
 
 -- | Add AWS authentication header to an HTTP request.
 addAuthenticationHeader :: S3Action     -- ^ Action with authentication data
-                        -> HTTP.Request -- ^ Request to transform
-                        -> HTTP.Request -- ^ Authenticated request
+                        -> HTTP.HTTPRequest L.ByteString -- ^ Request to transform
+                        -> HTTP.HTTPRequest L.ByteString -- ^ Authenticated request
 addAuthenticationHeader act req = insertHeader HdrAuthorization auth_string req
     where auth_string = "AWS " ++ (awsAccessKey conn) ++ ":" ++ signature
           signature = makeSignature conn (stringToSign act req)
@@ -115,14 +119,14 @@ makeSignature c s =
 
 -- | Generate text that will be signed and subsequently added to the
 --   request.
-stringToSign :: S3Action -> HTTP.Request -> String
+stringToSign :: S3Action -> HTTP.HTTPRequest L.ByteString -> String
 stringToSign a r =
     (canonicalizeHeaders r) ++
     (canonicalizeAmzHeaders r) ++
     (canonicalizeResource a)
 
 -- | Extract header data needed for signing.
-canonicalizeHeaders :: HTTP.Request -> String
+canonicalizeHeaders :: HTTP.HTTPRequest L.ByteString -> String
 canonicalizeHeaders r =
     http_verb ++ "\n" ++
     hdr_content_md5 ++ "\n" ++
@@ -142,7 +146,7 @@ canonicalizeHeaders r =
 --   combine headers with same name
 --   unfold multi-line headers
 --   trim whitespace around the header
-canonicalizeAmzHeaders :: HTTP.Request -> String
+canonicalizeAmzHeaders :: HTTP.HTTPRequest L.ByteString -> String
 canonicalizeAmzHeaders r =
     let amzHeaders = filter isAmzHeader (rqHeaders r)
         amzHeaderKV = map headerToLCKeyValue amzHeaders
@@ -209,18 +213,18 @@ canonicalizeResource a = bucket ++ uri
 
 
 -- | Add a date string to a request.
-addDateToReq :: HTTP.Request -- ^ Request to modify
+addDateToReq :: HTTP.HTTPRequest L.ByteString -- ^ Request to modify
              -> String       -- ^ Date string, in RFC 2616 format
-             -> HTTP.Request -- ^ Request with date header added
+             -> HTTP.HTTPRequest L.ByteString-- ^ Request with date header added
 addDateToReq r d = r {HTTP.rqHeaders =
                           (HTTP.Header HTTP.HdrDate d) : (HTTP.rqHeaders r)}
 
 -- | Add an expiration date to a request.
-addExpirationToReq :: HTTP.Request -> String -> HTTP.Request
+addExpirationToReq :: HTTP.HTTPRequest L.ByteString -> String -> HTTP.HTTPRequest L.ByteString
 addExpirationToReq r e = addHeaderToReq r (HTTP.Header HTTP.HdrExpires e)
 
 -- | Attach an HTTP header to a request.
-addHeaderToReq :: HTTP.Request -> Header -> HTTP.Request
+addHeaderToReq :: HTTP.HTTPRequest L.ByteString -> Header -> HTTP.HTTPRequest L.ByteString
 addHeaderToReq r h = r {HTTP.rqHeaders = h : (HTTP.rqHeaders r)}
 
 -- | Get hostname to connect to. Needed for european buckets
@@ -251,12 +255,13 @@ string2words = US.encode
 
 -- | Construct the request specified by an S3Action, send to Amazon,
 --   and return the response.  Todo: add MD5 signature.
-runAction :: S3Action -> IO (AWSResult Response)
+runAction :: S3Action -> IO (AWSResult (HTTPResponse L.ByteString))
 runAction a = runAction' a (s3Hostname a)
 
-runAction' :: S3Action -> String -> IO (AWSResult Response)
+runAction' :: S3Action -> String -> IO (AWSResult (HTTPResponse L.ByteString))
 runAction' a hostname = do
-        c <- openTCPConnection hostname (awsPort (s3conn a))
+        c <- (openTCPConnection hostname (awsPort (s3conn a)))
+--bufferOps = lazyBufferOp
         cd <- httpCurrentDate
         let aReq = addAuthenticationHeader a $
                    addContentLengthHeader $
@@ -296,7 +301,7 @@ preSignedURI a e =
 -- | Inspect a response for network errors, HTTP error codes, and
 --   Amazon error messages.
 --   We need the original action in case we get a 307 (temporary redirect)
-createAWSResult :: S3Action -> Result Response -> IO (AWSResult Response)
+createAWSResult :: S3Action -> Result (HTTPResponse L.ByteString) -> IO (AWSResult (HTTPResponse L.ByteString))
 createAWSResult a b = either (handleError) (handleSuccess) b
     where handleError e = return (Left (NetworkError e))
           handleSuccess s = case (rspCode s) of
@@ -306,7 +311,7 @@ createAWSResult a b = either (handleError) (handleSuccess) b
                                                 Just l -> runAction' a (getHostname l)
                                                 Nothing -> return (Left $ AWSError "Temporary Redirect" "Redirect without location header")  -- not good
                               (4,0,4) -> return (Left $ AWSError "NotFound" "404 Not Found")  -- no body, so no XML to parse
-                              otherwise -> do e <- parseRestErrorXML (rspBody s)
+                              otherwise -> do e <- parseRestErrorXML (L.unpack (rspBody s))
                                               return (Left e)
           -- Get hostname part from http url.
           getHostname :: String -> String

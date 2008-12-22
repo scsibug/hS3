@@ -24,6 +24,8 @@ import Network.HTTP
 import Network.URI
 import System.Time
 
+import qualified Data.ByteString.Lazy.Char8 as L
+
 -- | An object that can be stored and retrieved from S3.
 data S3Object =
     S3Object { -- | Name of the bucket containing this object
@@ -41,7 +43,7 @@ data S3Object =
                --   including these headers.
                obj_headers :: [(String, String)],
                -- | Object data.
-               obj_data :: String
+               obj_data :: L.ByteString
     } deriving (Read, Show)
 
 -- | Send data for an object.
@@ -65,7 +67,7 @@ publicUriUntilTime :: AWSConnection -- ^ AWS connection information
                              --   00:00:00 UTC on January 1, 1970
                   -> URI -- ^ URI for the object
 publicUriUntilTime c obj time =
-    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] "" GET
+    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] (L.empty) GET
     in preSignedURI act time
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
@@ -101,14 +103,14 @@ getObjectWithMethod m aws obj =
                                            (obj_name obj)
                                            ""
                                            (obj_headers obj)
-                                           "" m)
+                                           (L.empty) m)
        return (either (Left) (\x -> Right (populate_obj_from x)) res)
            where
              populate_obj_from x =
                  obj { obj_data = (rspBody x),
                        obj_headers = (headersFromResponse x) }
 
-headersFromResponse :: Response -> [(String,String)]
+headersFromResponse :: HTTPResponse L.ByteString -> [(String,String)]
 headersFromResponse r =
     let respheaders = rspHeaders r
     in map (\x -> case x of
@@ -125,7 +127,7 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
                                                               (obj_name obj)
                                                               ""
                                                               (obj_headers obj)
-                                                              "" DELETE)
+                                                              L.empty DELETE)
                           return (either (Left) (\_ -> Right ()) res)
 
 
