@@ -20,11 +20,12 @@ import Network.AWS.S3Object
 import Network.AWS.AWSConnection
 import System.Environment
 import Data.Maybe
+import qualified Data.ByteString.Lazy.Char8 as L
 
 main = do argv <- getArgs
           let bucket : key : seconds : xs = argv
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          let obj = S3Object bucket key "" [] ""
+          let obj = S3Object bucket key "" [] L.empty
           uri <- (publicUriForSeconds conn obj (read seconds))
           putStrLn (show uri)

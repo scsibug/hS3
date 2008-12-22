@@ -22,12 +22,13 @@ import Network.AWS.AWSConnection
 import Network.AWS.AWSResult
 import System.Environment
 import Data.Maybe
+import qualified Data.ByteString.Lazy.Char8 as L
 
 main = do argv <- getArgs
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
           let bucket : key : xs = argv
-          let obj = S3Object bucket key "" [] ""
+          let obj = S3Object bucket key "" [] L.empty
           res <- deleteObject conn obj
           either (putStrLn . prettyReqError)
                  (const $ putStrLn ("Key " ++ key ++ " has been removed, if it existed before."))

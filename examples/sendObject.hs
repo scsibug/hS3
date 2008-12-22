@@ -23,12 +23,14 @@ import Network.AWS.AWSConnection
 import Network.AWS.AWSResult
 import System.Environment
 import Data.Maybe
+import qualified Data.ByteString.Lazy.Char8 as L
 
 main = do argv <- getArgs
           let bucket : key : content : xs = argv
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          let obj = S3Object bucket key "text/html" [("x-amz-acl", "public-read")] content
+          let obj = S3Object bucket key "text/html" [("x-amz-acl", "public-read")]
+                    (L.pack content)
           res <- sendObject conn obj
           either (putStrLn . prettyReqError)
                  (const $ putStrLn ("Creation of " ++ key ++ " successful."))

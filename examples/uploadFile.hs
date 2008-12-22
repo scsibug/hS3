@@ -23,10 +23,11 @@ import Network.AWS.AWSResult
 import System.Environment
 import Data.Maybe
 import System.IO
+import qualified Data.ByteString.Lazy.Char8 as L
 
 main = do argv <- getArgs
           let bucket : key : filename : xs = argv
-          f <- readFile filename
+          f <- L.readFile filename
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
           let obj = S3Object bucket key "text/plain" [] f
