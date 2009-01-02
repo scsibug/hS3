@@ -26,6 +26,10 @@ extra-source-files: README, Tests.hs,
                     examples/listObjects.hs
                     examples/uploadFile.hs
 
+source-repository head
+  type:     darcs
+  location: http://gregheartsfield.com/repos/hS3/
+
 Library
 
   Build-depends:  base, HTTP >= 4000.0.0, Crypto >= 4.1.0, hxt, network,
