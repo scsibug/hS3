@@ -91,7 +91,7 @@ createBucketIn aws bucket location =
     in
     do res <- Auth.runAction (S3Action aws bucket "" "" [] (L.pack constraint) PUT)
        -- throw away the server response, return () on success
-       return (either (Left) (\_ -> Right ()) res)
+       return (either Left (\_ -> Right ()) res)
 
 -- | Create a new bucket on S3 with the given name.
 createBucket :: AWSConnection -- ^ AWS connection information
@@ -107,7 +107,7 @@ getBucketLocation :: AWSConnection  -- ^ AWS connection information
 getBucketLocation aws bucket =
     do res <- Auth.runAction (S3Action aws bucket "?location" "" [] L.empty GET)
        case res of
-         Left x -> do return (Left x)
+         Left x -> return (Left x)
          Right y -> do bs <- parseBucketLocationXML (L.unpack (rspBody y))
                        return (Right bs)
 
@@ -121,7 +121,7 @@ parseBucketLocationXML s =
 
 processLocation :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) String
 processLocation = (text <<< atTag "LocationConstraint")
-                    >>> arr (\x -> x)
+                    >>> arr id
 
 -- | Delete a bucket with the given name on S3.  The bucket must be
 --   empty for deletion to succeed.
@@ -130,7 +130,7 @@ deleteBucket :: AWSConnection -- ^ AWS connection information
              -> IO (AWSResult ()) -- ^ Server response
 deleteBucket aws bucket =
     do res <- Auth.runAction (S3Action aws bucket "" "" [] L.empty DELETE)
-       return (either (Left) (\_ -> Right ()) res)
+       return (either Left (\_ -> Right ()) res)
 
 -- | Empty a bucket of all objects.  Iterates through all objects
 --   issuing delete commands, so time is proportional to number of
@@ -164,7 +164,7 @@ listBuckets :: AWSConnection -- ^ AWS connection information
 listBuckets aws =
     do res <- Auth.runAction (S3Action aws "" "" "" [] L.empty GET)
        case res of
-         Left x -> do return (Left x)
+         Left x -> return (Left x)
          Right y -> do bs <- parseBucketListXML (L.unpack (rspBody y))
                        return (Right bs)
 
@@ -186,10 +186,10 @@ data ListRequest =
                 }
 
 instance Show ListRequest where
-    show x = "prefix=" ++ (urlEncode (prefix x)) ++ "&" ++
-             "marker=" ++ (urlEncode (marker x)) ++ "&" ++
-             "delimiter=" ++ (urlEncode (delimiter x)) ++ "&" ++
-             "max-keys=" ++ (show (max_keys x))
+    show x = "prefix=" ++ urlEncode (prefix x) ++ "&" ++
+             "marker=" ++ urlEncode (marker x) ++ "&" ++
+             "delimiter=" ++ urlEncode (delimiter x) ++ "&" ++
+             "max-keys=" ++ show (max_keys x)
 
 -- | Result from listing objects.
 data ListResult =
@@ -213,9 +213,9 @@ listObjects :: AWSConnection -- ^ AWS connection information
             -> IO (AWSResult (IsTruncated, [ListResult])) -- ^ Server response
 listObjects aws bucket lreq =
     do res <- Auth.runAction (S3Action aws bucket ""
-                                           ("?" ++ (show lreq)) [] L.empty GET)
+                                           ('?' : show lreq) [] L.empty GET)
        case res of
-         Left x -> do return (Left x)
+         Left x -> return (Left x)
          Right y -> do let objs = L.unpack (rspBody y)
                        tr <- isListTruncated objs
                        lr <- getListResults objs
@@ -230,9 +230,9 @@ listAllObjects aws bucket lp =
     do let lp_max = lp {max_keys = 1000}
        res <- listObjects aws bucket lp_max
        case res of
-         Left x -> do return (Left x)
+         Left x -> return (Left x)
          Right y -> case y of
-                      (True,lr) -> do let last_result = (key . head . reverse) lr
+                      (True,lr) -> do let last_result = (key . last) lr
                                       next_set <- listAllObjects aws bucket
                                                   (lp_max {marker = last_result})
                                       either (\x -> return (Left x))
@@ -266,7 +266,7 @@ processListResults = deep (isElem >>> hasName "Contents") >>>
                       (text <<< atTag "LastModified") &&&
                       (text <<< atTag "ETag") &&&
                       (text <<< atTag "Size")) >>>
-                     arr (\(a,(b,(c,d))) -> ListResult a b (unquote . HTTP.urlDecode $ c) (read d))
+                     arr (\(a,(b,(c,d))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d))
 
 -- | Remove quote characters from a 'String'.
 unquote :: String -> String

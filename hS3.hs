@@ -42,8 +42,7 @@ main = do
     ["los", bucket] ->
         do l <- withConn $ \g -> listObjects g bucket (ListRequest "" "" "" 1000)
            print l
-    ["lbs"] -> do l <- withConn listBuckets
-                  print l
+    ["lbs"] -> withConn listBuckets >>= print
     _ -> usage
 
 usage :: IO ()

@@ -55,5 +55,5 @@ amazonS3ConnectionFromEnv =
                   ( _, "", "") -> Nothing
                   ( _, "",  _) -> Just (amazonS3Connection ak sk1)
                   ( _,  _,  _) -> Just (amazonS3Connection ak sk0)
-    where getEnvKey s = do catch (getEnv s) (const $ return "")
+    where getEnvKey s = catch (getEnv s) (const $ return "")
 

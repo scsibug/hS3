@@ -28,12 +28,12 @@ main = do argv <- getArgs
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
           res <- listAllObjects conn bucket (ListRequest "" ""  "" 1000)
-          putStrLn (show (ListRequest "" ""  "" 1000))
+          print (ListRequest "" ""  "" 1000)
           either (putStrLn . prettyReqError)
                  (\x -> do putStrLn ("Key list from bucket " ++
                                      bucket ++
                                      " has been retrieved.  Key/Etag follows:")
-                           mapM_ (\x -> putStrLn ((key x) ++
+                           mapM_ (\x -> putStrLn (key x ++
                                                   " " ++
-                                                  (etag x))) x
+                                                  etag x)) x
                  ) res

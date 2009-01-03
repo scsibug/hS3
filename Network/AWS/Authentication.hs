@@ -80,19 +80,19 @@ requestFromAction a =
                             uriQuery = s3query a,
                             uriFragment = "" },
               rqMethod = s3operation a,
-              rqHeaders = [Header HdrHost (s3Hostname a)] ++
-                          (headersFromAction a),
+              rqHeaders = Header HdrHost (s3Hostname a) :
+                          headersFromAction a,
               rqBody = (s3body a)
             }
-    where qpath = "/" ++ (s3object a)
+    where qpath = '/' : s3object a
 
 -- | Create 'Header' objects from an action.
 headersFromAction :: S3Action
                   -> [Header]
-headersFromAction a = map (\(k,v) -> case k of
-                                       "Content-Type" -> Header HdrContentType v
-                                       otherwise -> (Header (HdrCustom k)) (mimeEncodeQP v))
-                                            (s3metadata a)
+headersFromAction = map (\(k,v) -> case k of
+                                    "Content-Type" -> Header HdrContentType v
+                                    otherwise -> Header (HdrCustom k) (mimeEncodeQP v))
+                    . s3metadata
 
 -- | Inspect HTTP body, and add a @Content-Length@ header with the
 --   correct length.
@@ -104,7 +104,7 @@ addAuthenticationHeader :: S3Action     -- ^ Action with authentication data
                         -> HTTP.HTTPRequest L.ByteString -- ^ Request to transform
                         -> HTTP.HTTPRequest L.ByteString -- ^ Authenticated request
 addAuthenticationHeader act req = insertHeader HdrAuthorization auth_string req
-    where auth_string = "AWS " ++ (awsAccessKey conn) ++ ":" ++ signature
+    where auth_string = "AWS " ++ awsAccessKey conn ++ ":" ++ signature
           signature = makeSignature conn (stringToSign act req)
           conn = s3conn act
 
@@ -121,9 +121,9 @@ makeSignature c s =
 --   request.
 stringToSign :: S3Action -> HTTP.HTTPRequest L.ByteString -> String
 stringToSign a r =
-    (canonicalizeHeaders r) ++
-    (canonicalizeAmzHeaders r) ++
-    (canonicalizeResource a)
+    canonicalizeHeaders r ++
+    canonicalizeAmzHeaders r ++
+    canonicalizeResource a
 
 -- | Extract header data needed for signing.
 canonicalizeHeaders :: HTTP.HTTPRequest L.ByteString -> String
@@ -136,8 +136,8 @@ canonicalizeHeaders r =
               hdr_content_md5 = get_header HdrContentMD5
               hdr_date = get_header HdrDate
               hdr_content_type = get_header HdrContentType
-              get_header h = maybe "" id (findHeader h r)
-              dateOrExpiration = maybe hdr_date id (findHeader HdrExpires r)
+              get_header h = fromMaybe "" (findHeader h r)
+              dateOrExpiration = fromMaybe hdr_date (findHeader HdrExpires r)
 
 -- | Extract @x-amz-*@ headers needed for signing.
 --   find all headers with type HdrCustom that begin with amzHeader
@@ -152,7 +152,7 @@ canonicalizeAmzHeaders r =
         amzHeaderKV = map headerToLCKeyValue amzHeaders
         sortedGroupedHeaders = groupHeaders (sortHeaders amzHeaderKV)
         uniqueHeaders = combineHeaders sortedGroupedHeaders
-    in concat (map (\a -> a ++ "\n") (map showHeader uniqueHeaders))
+    in concatMap (\a -> a ++ "\n") (map showHeader uniqueHeaders)
 
 -- | Give the string representation of a (key,value) header pair.
 --   Uses rules for authenticated headers.
@@ -169,7 +169,7 @@ removeLeadingTrailingWhitespace s = subRegex (mkRegex "^\\s+") (subRegex (mkRege
 
 -- | Combine same-named headers.
 combineHeaders :: [[(String, String)]] -> [(String, String)]
-combineHeaders h = map mergeSameHeaders h
+combineHeaders = map mergeSameHeaders
 
 -- | Headers with same name should have values merged.
 mergeSameHeaders :: [(String, String)] -> (String, String)
@@ -178,11 +178,11 @@ mergeSameHeaders h@(x:_) = let values = map snd h
 
 -- | Group headers with the same name.
 groupHeaders :: [(String, String)] -> [[(String, String)]]
-groupHeaders = groupBy (\a b -> (fst a) == (fst b))
+groupHeaders = groupBy (\a b -> fst a == fst b)
 
 -- | Sort by key name.
 sortHeaders :: [(String, String)] -> [(String, String)]
-sortHeaders = sortBy (\a b -> (fst a) `compare` (fst b))
+sortHeaders = sortBy (\a b -> fst a `compare` fst b)
 
 -- | Make 'Header' easier to work with, and lowercase keys.
 headerToLCKeyValue :: Header -> (String, String)
@@ -206,9 +206,9 @@ amzHeader = "x-amz-"
 -- | Extract resource name, as required for signing.
 canonicalizeResource :: S3Action -> String
 canonicalizeResource a = bucket ++ uri
-    where uri = "/" ++ (s3object a)
+    where uri = '/' : s3object a
           bucket = case (s3bucket a) of
-                     b@(_:_) -> "/" ++ map toLower b
+                     b@(_:_) -> '/' : map toLower b
                      otherwise -> ""
 
 
@@ -217,15 +217,15 @@ addDateToReq :: HTTP.HTTPRequest L.ByteString -- ^ Request to modify
              -> String       -- ^ Date string, in RFC 2616 format
              -> HTTP.HTTPRequest L.ByteString-- ^ Request with date header added
 addDateToReq r d = r {HTTP.rqHeaders =
-                          (HTTP.Header HTTP.HdrDate d) : (HTTP.rqHeaders r)}
+                          HTTP.Header HTTP.HdrDate d : HTTP.rqHeaders r}
 
 -- | Add an expiration date to a request.
 addExpirationToReq :: HTTP.HTTPRequest L.ByteString -> String -> HTTP.HTTPRequest L.ByteString
-addExpirationToReq r e = addHeaderToReq r (HTTP.Header HTTP.HdrExpires e)
+addExpirationToReq r = addHeaderToReq r . HTTP.Header HTTP.HdrExpires
 
 -- | Attach an HTTP header to a request.
 addHeaderToReq :: HTTP.HTTPRequest L.ByteString -> Header -> HTTP.HTTPRequest L.ByteString
-addHeaderToReq r h = r {HTTP.rqHeaders = h : (HTTP.rqHeaders r)}
+addHeaderToReq r h = r {HTTP.rqHeaders = h : HTTP.rqHeaders r}
 
 -- | Get hostname to connect to. Needed for european buckets
 s3Hostname :: S3Action -> String
@@ -281,18 +281,18 @@ preSignedURI a e =
     let c = (s3conn a)
         srv = (awsHost c)
         pt = (show (awsPort c))
-        accessKeyQuery = "AWSAccessKeyId=" ++ (awsAccessKey c)
+        accessKeyQuery = "AWSAccessKeyId=" ++ awsAccessKey c
         beginQuery = case (s3query a) of
                   "" -> "?"
                   x -> x ++ "&"
-        expireQuery = "Expires=" ++ (show e)
-        toSign = "GET\n\n\n" ++ (show e) ++ "\n/" ++ (s3bucket a) ++ "/" ++ (s3object a)
-        sigQuery = "Signature=" ++ (urlEncode (makeSignature c toSign))
+        expireQuery = "Expires=" ++ show e
+        toSign = "GET\n\n\n" ++ show e ++ "\n/" ++ s3bucket a ++ "/" ++ s3object a
+        sigQuery = "Signature=" ++ urlEncode (makeSignature c toSign)
         q = beginQuery ++ accessKeyQuery ++ "&" ++
                 expireQuery ++ "&" ++ sigQuery
     in URI { uriScheme = "http:",
-             uriAuthority = Just (URIAuth "" srv (":" ++ pt)),
-             uriPath = "/" ++ (s3bucket a) ++ "/" ++ (s3object a),
+             uriAuthority = Just (URIAuth "" srv (':' : pt)),
+             uriPath = "/" ++ s3bucket a ++ "/" ++ s3object a,
              uriQuery = q,
              uriFragment = ""
            }
@@ -302,8 +302,8 @@ preSignedURI a e =
 --   Amazon error messages.
 --   We need the original action in case we get a 307 (temporary redirect)
 createAWSResult :: S3Action -> Result (HTTPResponse L.ByteString) -> IO (AWSResult (HTTPResponse L.ByteString))
-createAWSResult a b = either (handleError) (handleSuccess) b
-    where handleError e = return (Left (NetworkError e))
+createAWSResult a b = either handleError handleSuccess b
+    where handleError = return . Left . NetworkError
           handleSuccess s = case (rspCode s) of
                               (2,_,_) -> return (Right s)
                               -- temporary redirect
@@ -341,7 +341,6 @@ processRestError = deep (isElem >>> hasName "Error") >>>
 
 --- mime header encoding
 mimeEncodeQP, mimeDecode :: String -> String
-
 -- | Decode a mime string, we know about quoted printable and base64 encoded UTF-8
 -- S3 may convert quoted printable to base64
 mimeDecode a

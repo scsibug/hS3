@@ -55,9 +55,9 @@ sendObject aws obj =
                               (obj_name obj)
                               ""
                               (("Content-Type", (content_type obj)) :
-                               (obj_headers obj))
+                               obj_headers obj)
                               (obj_data obj) PUT)
-       return (either (Left) (\_ -> Right ()) res)
+       return (either Left (\_ -> Right ()) res)
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
 --   an object until the specified date.
@@ -67,7 +67,7 @@ publicUriUntilTime :: AWSConnection -- ^ AWS connection information
                              --   00:00:00 UTC on January 1, 1970
                   -> URI -- ^ URI for the object
 publicUriUntilTime c obj time =
-    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] (L.empty) GET
+    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] L.empty GET
     in preSignedURI act time
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
@@ -103,8 +103,8 @@ getObjectWithMethod m aws obj =
                                            (obj_name obj)
                                            ""
                                            (obj_headers obj)
-                                           (L.empty) m)
-       return (either (Left) (\x -> Right (populate_obj_from x)) res)
+                                           L.empty m)
+       return (either Left (\x -> Right (populate_obj_from x)) res)
            where
              populate_obj_from x =
                  obj { obj_data = (rspBody x),
@@ -128,6 +128,6 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
                                                               ""
                                                               (obj_headers obj)
                                                               L.empty DELETE)
-                          return (either (Left) (\_ -> Right ()) res)
+                          return (either Left (\_ -> Right ()) res)
 
 

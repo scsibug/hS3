@@ -79,9 +79,11 @@ failOnError :: (Show a) =>
             -> t           -- ^ Value to return on failure
             -> (b -> IO t) -- ^ Assertions to run on success
             -> IO t
-failOnError r f d = do either (\x -> do assertFailure (show x)
-                                        return f)
-                          (\x -> do d x) r
+failOnError r f d = either
+                    (\x ->
+                         do assertFailure (show x)
+                            return f)
+                    (\x -> d x) r
 
 testCreateBucket :: AWSConnection -> IO String
 testCreateBucket c =
@@ -100,7 +102,9 @@ testCreateBucketIn c location =
 testGetBucketLocation :: AWSConnection -> String -> String -> IO ()
 testGetBucketLocation c bucket expectedLocation =
     do r <- getBucketLocation c bucket
-       failOnError r () (\x -> do assertEqual ("Bucket in the " ++ expectedLocation) expectedLocation x)
+       failOnError r () (\x ->
+                         assertEqual ("Bucket in the " ++ expectedLocation)
+                                     expectedLocation x)
 
 testSendObject :: AWSConnection -> S3Object -> IO ()
 testSendObject c o =
@@ -155,11 +159,10 @@ testDeleteBucket c bucket =
 -- test if a bucket is not present
 testBucketGone :: AWSConnection -> String -> IO ()
 testBucketGone c bucket =
-    do r <- getBucketLocation c bucket
+    getBucketLocation c bucket >>=
        either (\(AWSError code msg) -> assertEqual "Bucket is gone" "NotFound" code)
               (\x -> do assertFailure "Bucket still there, should be gone"
                         return ())
-              r
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
              return (fromJust mConn)
@@ -169,5 +172,5 @@ getConn = do mConn <- amazonS3ConnectionFromEnv
 headersToIgnore = ["x-amz-id-2", "x-amz-request-id"]
 
 realMetadata :: [(String, b)] -> [(String, b)]
-realMetadata = filter (\x -> (fst x) `notElem` headersToIgnore)
+realMetadata = filter (\x -> fst x `notElem` headersToIgnore)
 

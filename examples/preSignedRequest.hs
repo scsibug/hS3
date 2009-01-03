@@ -28,4 +28,4 @@ main = do argv <- getArgs
           let conn = fromJust mConn
           let obj = S3Object bucket key "" [] L.empty
           uri <- (publicUriForSeconds conn obj (read seconds))
-          putStrLn (show uri)
+          print uri

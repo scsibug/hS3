@@ -26,4 +26,4 @@ import Data.Maybe
 main = do mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
           res <- listBuckets conn
-          either (putStrLn . show) (mapM_ (putStrLn . bucket_name)) res
+          either print (mapM_ (putStrLn . bucket_name)) res
