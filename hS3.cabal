@@ -2,7 +2,7 @@ Name:           hS3
 Version:        0.4
 License:        BSD3
 License-file:   LICENSE
-Cabal-Version: >= 1.2
+Cabal-Version: >= 1.6
 Copyright: 
   Copyright (c) 2008, Greg Heartsfield
 Author:         Greg Heartsfield <scsibug@imap.cc>
