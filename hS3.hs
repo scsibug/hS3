@@ -41,7 +41,7 @@ main = do
             =<< L.getContents
     ["los", bucket] ->
         do l <- withConn $ \g -> listObjects g bucket (ListRequest "" "" "" 1000)
-           print l
+           mapM_ (putStrLn . key) (snd l)
     ["lbs"] -> withConn listBuckets >>= mapM_ (putStrLn . bucket_name)
     _ -> usage
 
