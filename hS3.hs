@@ -42,7 +42,7 @@ main = do
     ["los", bucket] ->
         do l <- withConn $ \g -> listObjects g bucket (ListRequest "" "" "" 1000)
            print l
-    ["lbs"] -> withConn listBuckets >>= print
+    ["lbs"] -> withConn listBuckets >>= mapM_ (putStrLn . bucket_name)
     _ -> usage
 
 usage :: IO ()
