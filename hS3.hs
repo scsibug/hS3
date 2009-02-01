@@ -36,6 +36,8 @@ main = do
     ["go", bucket, gkey ] ->
         do c <- withConn $ \g -> getObject g $ S3Object bucket gkey "" [] L.empty
            L.putStr $ obj_data c
+    ["do", bucket, key] ->
+        do withConn $ \g -> deleteObject g $ S3Object bucket key "" [] L.empty
     ["so", bucket, skey ] ->
         (\c ->  withConn $ \g -> sendObject g $ S3Object bucket skey "" [] c)
             =<< L.getContents
