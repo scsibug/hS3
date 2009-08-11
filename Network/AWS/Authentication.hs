@@ -22,7 +22,7 @@ module Network.AWS.Authentication (
 import Network.AWS.AWSResult
 import Network.AWS.AWSConnection
 import Network.AWS.ArrowUtils
-import Network.HTTP as HTTP
+import Network.HTTP as HTTP hiding (simpleHTTP_)
 import Network.HTTP.HandleStream (simpleHTTP_)
 import Network.Stream (Result)
 import Network.URI as URI
