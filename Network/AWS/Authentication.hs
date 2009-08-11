@@ -91,6 +91,7 @@ headersFromAction :: S3Action
                   -> [Header]
 headersFromAction = map (\(k,v) -> case k of
                                     "Content-Type" -> Header HdrContentType v
+                                    "Content-Length" -> Header HdrContentLength v
                                     otherwise -> Header (HdrCustom k) (mimeEncodeQP v))
                     . s3metadata
 
