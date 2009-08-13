@@ -11,7 +11,7 @@
 
 module Network.AWS.S3Object (
   -- * Function Types
-  sendObject, getObject, getObjectInfo, deleteObject,
+  sendObject, copyObject, getObject, getObjectInfo, deleteObject,
   publicUriForSeconds, publicUriUntilTime,
   -- * Data Types
   S3Object(..)
@@ -130,4 +130,22 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
                                                               L.empty DELETE)
                           return (either Left (\_ -> Right ()) res)
 
+-- | Copy object from one bucket to another (or the same bucket).
+copyObject :: AWSConnection            -- ^ AWS connection information
+              -> S3Object                 -- ^ Source object
+              -> S3Object                 -- ^ Destination object
+              -> IO (AWSResult S3Object)  -- ^ Server response
+copyObject aws srcobj destobj =
+    do res <- Auth.runAction (S3Action aws (obj_bucket destobj)
+                                           (obj_name destobj)
+                                           ""
+                                           (copy_headers)
+                                           L.empty PUT)
+       return (either Left (\x -> Right (populate_obj_from x)) res)
+           where
+             populate_obj_from x =
+                 destobj { obj_data = (rspBody x),
+                           obj_headers = (headersFromResponse x) }
+             copy_headers = [("x-amz-copy-source", -- TODO: verify this becomes URL-encoded
+                              ("/"++ (obj_bucket srcobj) ++ "/" ++ (obj_name srcobj)))]
 
