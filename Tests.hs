@@ -190,11 +190,13 @@ testDeleteBucket c bucket =
               (const $ assertBool "bucket deletion" True)
 
 -- test if a bucket is not present
+-- It sometimes takes a second or two for a bucket to disappear after a delete,
+-- so failing this is not fatal.
 testBucketGone :: AWSConnection -> String -> IO ()
 testBucketGone c bucket =
     getBucketLocation c bucket >>=
        either (\(AWSError code msg) -> assertEqual "Bucket is gone" "NotFound" code)
-              (\x -> do assertFailure "Bucket still there, should be gone"
+              (\x -> do assertFailure "Bucket still there, should be gone (not fatal)"
                         return ())
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
