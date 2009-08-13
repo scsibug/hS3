@@ -18,6 +18,7 @@ import Network.AWS.S3Object
 import Network.AWS.S3Bucket
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy.Char8 as L
+import Control.Exception(finally)
 
 import Test.HUnit
 
@@ -25,8 +26,8 @@ import Test.HUnit
 main = runTestTT tests
 
 tests =
-   TestList [TestLabel "S3 Operations Test" s3OperationsTest]
-
+   TestList [TestLabel "S3 Operations Test" s3OperationsTest,
+             TestLabel "S3 Copy Test" s3CopyTest]
 
 testBucket = "hS3-test"
 
@@ -35,7 +36,6 @@ testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
                       ("x-amz-meta-french", "Bonjour, ça va?"),
                       ("x-amz-meta-smiley", "☺")
                       ] (L.pack "Hello S3!")
-
 
 -- | A sequence of several operations.
 s3OperationsTest =
@@ -75,6 +75,32 @@ s3OperationsTest =
                  testDeleteBucket c euBucket
              )
 
+s3CopyTest =
+    TestCase (
+              do c <- getConn
+                 -- Bucket Creation
+                 bucket <- testCreateBucket c
+                 bucketC <- testCreateBucket c
+                 finally (
+                       do let testObj = testObjectTemplate {obj_bucket = bucket}
+                          let copyObj = testObjectTemplate {obj_bucket = bucketC,
+                                                            obj_name = "hS3-copy-test"}
+                          -- Object send
+                          testSendObject c testObj
+                          -- Object copy
+                          testCopyObject c testObj copyObj
+                          -- Object get info from copied object
+                          testGetObjectInfo c copyObj
+                         ) (
+                          -- Empty buckets
+                       do testEmptyBucket c bucket
+                          testEmptyBucket c bucketC
+                          -- Destroy buckets
+                          testDeleteBucket c bucket
+                          testDeleteBucket c bucketC
+                         )
+             )
+
 failOnError :: (Show a) =>
                Either a b  -- ^ AWS Result to inspect
             -> t           -- ^ Value to return on failure
@@ -112,6 +138,12 @@ testSendObject c o =
     do r <- sendObject c o
        failOnError r ()
               (const $ assertBool "object send" True)
+
+testCopyObject :: AWSConnection -> S3Object -> S3Object -> IO ()
+testCopyObject c srco desto =
+    do r <- copyObject c srco desto
+       failOnError r ()
+               (const $ assertBool "object copied" True)
 
 testGetObject :: AWSConnection -> S3Object -> IO ()
 testGetObject c o =
