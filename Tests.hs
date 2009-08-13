@@ -25,7 +25,8 @@ import Test.HUnit
 main = runTestTT tests
 
 tests =
-   TestList [s3operationsTest]
+   TestList [TestLabel "S3 Operations Test" s3OperationsTest]
+
 
 testBucket = "hS3-test"
 
@@ -37,7 +38,7 @@ testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
 
 
 -- | A sequence of several operations.
-s3operationsTest =
+s3OperationsTest =
     TestCase (
               do c <- getConn
                  -- Bucket Creation
