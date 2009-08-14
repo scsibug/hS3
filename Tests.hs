@@ -19,6 +19,7 @@ import Network.AWS.S3Bucket
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Control.Exception(finally)
+import IO(bracket)
 
 import Test.HUnit
 
@@ -78,15 +79,24 @@ s3OperationsTest =
 s3LocationTest =
     TestCase (
               do c <- getConn
-                 euBucket <- testCreateBucketIn c "EU"
-                 testGetBucketLocation c euBucket "EU"
-                 let euTestObj = testObjectTemplate {obj_bucket = euBucket}
-                 testSendObject c euTestObj
-                 testGetObject c euTestObj
-                 testDeleteObject c euTestObj
-                 testDeleteBucket c euBucket
+                 -- European buckets
+                 bracket (testCreateBucketIn c "EU")
+                             (\b ->
+                                  do testEmptyBucket c b
+                                     testDeleteBucket c b
+                             )
+                             (\b ->
+                                  do testGetBucketLocation c b "EU"
+                                     let euTestObj = testObjectTemplate {obj_bucket = b}
+                                     testSendObject c euTestObj
+                                     testGetObject c euTestObj
+                                     testDeleteObject c euTestObj
+                             )
+                 -- US buckets
+                 bracket (testCreateBucketIn c "US")
+                             (\b -> testDeleteBucket c b)
+                             (\b -> testGetBucketLocation c b"US")
              )
-
 
 bucketNamingTest =
     TestList [(TestCase (assertBool "At least 3 chars" (not (isBucketNameValid "ab")))),
