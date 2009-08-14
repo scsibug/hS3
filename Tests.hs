@@ -27,7 +27,8 @@ main = runTestTT tests
 
 tests =
    TestList [TestLabel "S3 Operations Test" s3OperationsTest,
-             TestLabel "S3 Copy Test" s3CopyTest]
+             TestLabel "S3 Copy Test" s3CopyTest,
+             TestLabel "Bucket Naming Test" bucketNamingTest]
 
 testBucket = "hS3-test"
 
@@ -74,6 +75,20 @@ s3OperationsTest =
                  testDeleteObject c euTestObj
                  testDeleteBucket c euBucket
              )
+
+bucketNamingTest =
+    TestList [(TestCase (assertBool "At least 3 chars" (not (isBucketNameValid "ab")))),
+              (TestCase (assertBool "At least 3 chars" (isBucketNameValid "abc"))),
+              (TestCase (assertBool "63 chars or fewer" (not (isBucketNameValid (replicate 64 'a'))))),
+              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid ".")))),
+              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid "_")))),
+              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid "-")))),
+--              (TestCase (assertBool "No IP address style" (not (isBucketNameValid "192.168.1.5.4")))),
+              (TestCase (assertBool "No underscores" (not (isBucketNameValid "ab_cd")))),
+              (TestCase (assertBool "Do not end with a dash" (not (isBucketNameValid "foo-")))),
+              (TestCase (assertBool "Dashes should not be next to periods" (not (isBucketNameValid "ab.-cd")))),
+              (TestCase (assertBool "Dashes should not be next to periods" (not (isBucketNameValid "ab-.cd"))))
+              ]
 
 s3CopyTest =
     TestCase (

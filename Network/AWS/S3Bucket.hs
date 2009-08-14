@@ -33,7 +33,8 @@ import Network.Stream()
 
 import qualified Data.ByteString.Lazy.Char8 as L
 
-import Data.Char (toLower)
+import Data.Char (toLower, isAlphaNum)
+import Data.List (isInfixOf)
 
 import Text.XML.HXT.Arrow
 import qualified Data.Tree.NTree.TypeDefs
@@ -269,10 +270,16 @@ processListResults = deep (isElem >>> hasName "Contents") >>>
                       (text <<< atTag "Size")) >>>
                      arr (\(a,(b,(c,d))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d))
 
--- | Check Amazon guidelines on bucket naming (not exhaustive).
+-- | Check Amazon guidelines on bucket naming.  (missing test for IP-like names)
 isBucketNameValid :: String -> Bool
 isBucketNameValid n = and checks where
-    checks = [(length n > 3)]
+    checks = [(length n >= 3),
+              (length n <= 63),
+              (isAlphaNum $ head n),
+              (not (elem '_' n)),
+              (not (isInfixOf ".-" n)),
+              (not (isInfixOf "-." n)),
+              ((last n) /= '-')]
 
 -- | Remove quote characters from a 'String'.
 unquote :: String -> String
