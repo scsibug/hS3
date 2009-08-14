@@ -26,10 +26,13 @@ import Test.HUnit
 main = runTestTT tests
 
 tests =
-   TestList [TestLabel "S3 Operations Test" s3OperationsTest,
-             TestLabel "S3 Copy Test" s3CopyTest,
-             TestLabel "S3 Location Test" s3LocationTest,
-             TestLabel "Bucket Naming Test" bucketNamingTest]
+    TestList
+    [
+     TestLabel "S3 Operations Test" s3OperationsTest,
+     TestLabel "S3 Copy Test" s3CopyTest,
+     TestLabel "S3 Location Test" s3LocationTest,
+     TestLabel "Bucket Naming Test" bucketNamingTest
+    ]
 
 testBucket = "hs3-test"
 
