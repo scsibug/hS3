@@ -14,6 +14,7 @@ module Network.AWS.S3Bucket (
                createBucketIn, createBucket, createBucketWithPrefixIn,
                createBucketWithPrefix, deleteBucket, getBucketLocation,
                emptyBucket, listBuckets, listObjects, listAllObjects,
+               isBucketNameValid,
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
@@ -267,6 +268,11 @@ processListResults = deep (isElem >>> hasName "Contents") >>>
                       (text <<< atTag "ETag") &&&
                       (text <<< atTag "Size")) >>>
                      arr (\(a,(b,(c,d))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d))
+
+-- | Check Amazon guidelines on bucket naming (not exhaustive).
+isBucketNameValid :: String -> Bool
+isBucketNameValid n = and checks where
+    checks = [(length n > 3)]
 
 -- | Remove quote characters from a 'String'.
 unquote :: String -> String
