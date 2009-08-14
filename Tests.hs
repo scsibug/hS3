@@ -41,8 +41,7 @@ testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
 
 testSourceTemplate = S3Object testBucket "hS3-object-source" "text/plain"
                          [] (L.pack "testing")
-testDestinationTemplate = S3Object testBucket "hS3-object-destination" "text/plain"
-                         [] (L.empty)
+testDestinationTemplate = testSourceTemplate {obj_name = "hS3-object-destination"}
 
 -- | A sequence of several operations.
 s3OperationsTest =
