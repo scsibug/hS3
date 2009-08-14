@@ -28,6 +28,7 @@ main = runTestTT tests
 tests =
    TestList [TestLabel "S3 Operations Test" s3OperationsTest,
              TestLabel "S3 Copy Test" s3CopyTest,
+             TestLabel "S3 Location Test" s3LocationTest,
              TestLabel "Bucket Naming Test" bucketNamingTest]
 
 testBucket = "hs3-test"
@@ -70,8 +71,11 @@ s3OperationsTest =
                  testDeleteBucket c bucket
                  -- Bucket should be gone
                  testBucketGone c bucket
+             )
 
-                 -- Bucket in europe
+s3LocationTest =
+    TestCase (
+              do c <- getConn
                  euBucket <- testCreateBucketIn c "EU"
                  testGetBucketLocation c euBucket "EU"
                  let euTestObj = testObjectTemplate {obj_bucket = euBucket}
@@ -80,6 +84,7 @@ s3OperationsTest =
                  testDeleteObject c euTestObj
                  testDeleteBucket c euBucket
              )
+
 
 bucketNamingTest =
     TestList [(TestCase (assertBool "At least 3 chars" (not (isBucketNameValid "ab")))),
