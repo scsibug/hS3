@@ -95,22 +95,27 @@ s3LocationTest =
                  -- US buckets
                  bracket (testCreateBucketIn c "US")
                              (\b -> testDeleteBucket c b)
-                             (\b -> testGetBucketLocation c b"US")
+                             (\b -> testGetBucketLocation c b "US")
              )
 
 bucketNamingTest =
-    TestList [(TestCase (assertBool "At least 3 chars" (not (isBucketNameValid "ab")))),
-              (TestCase (assertBool "At least 3 chars" (isBucketNameValid "abc"))),
-              (TestCase (assertBool "63 chars or fewer" (not (isBucketNameValid (replicate 64 'a'))))),
-              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid ".")))),
-              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid "_")))),
-              (TestCase (assertBool "Starts with alphanum char" (not (isBucketNameValid "-")))),
---              (TestCase (assertBool "No IP address style" (not (isBucketNameValid "192.168.1.5.4")))),
-              (TestCase (assertBool "No underscores" (not (isBucketNameValid "ab_cd")))),
-              (TestCase (assertBool "Do not end with a dash" (not (isBucketNameValid "foo-")))),
-              (TestCase (assertBool "Dashes should not be next to periods" (not (isBucketNameValid "ab.-cd")))),
-              (TestCase (assertBool "Dashes should not be next to periods" (not (isBucketNameValid "ab-.cd"))))
-              ]
+    TestList
+    [
+     (nameNotValidTC "At least 3 chars" "ab"),
+     (nameValidTC "At least 3 chars" "abc"),
+     (nameNotValidTC "63 chars or fewer" (replicate 64 'a')),
+     (nameNotValidTC "Starts with alphanum char" "."),
+     (nameNotValidTC "Starts with alphanum char" "_"),
+     (nameNotValidTC "Starts with alphanum char" "-"),
+     (nameNotValidTC "No underscores" "ab_cd"),
+     (nameNotValidTC "Do not end with a dash" "foo-"),
+     (nameNotValidTC "Dashes should not be next to periods" "ab.-cd")
+    ]
+
+nameValidTC :: String -> String -> Test
+nameValidTC msg name = TestCase (assertBool msg (isBucketNameValid name))
+nameNotValidTC :: String -> String -> Test
+nameNotValidTC msg name = TestCase (assertBool msg (not (isBucketNameValid name)))
 
 s3CopyTest =
     TestCase (
