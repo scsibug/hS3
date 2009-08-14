@@ -54,9 +54,9 @@ data S3Action =
     S3Action {
       -- | Connection and authentication information
       s3conn :: AWSConnection,
-      -- | Name of bucket to act on
+      -- | Name of bucket to act on (URL encoded)
       s3bucket :: String,
-      -- | Name of object to act on
+      -- | Name of object to act on (URL encoded)
       s3object :: String,
       -- | Query parameters (requires a prefix of @?@)
       s3query :: String,

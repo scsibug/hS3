@@ -51,8 +51,8 @@ sendObject :: AWSConnection      -- ^ AWS connection information
            -> S3Object           -- ^ Object to add to a bucket
            -> IO (AWSResult ())  -- ^ Server response
 sendObject aws obj =
-    do res <- Auth.runAction (S3Action aws (obj_bucket obj)
-                              (obj_name obj)
+    do res <- Auth.runAction (S3Action aws (urlEncode (obj_bucket obj))
+                              (urlEncode (obj_name obj))
                               ""
                               (("Content-Type", (content_type obj)) :
                                obj_headers obj)
@@ -67,7 +67,7 @@ publicUriUntilTime :: AWSConnection -- ^ AWS connection information
                              --   00:00:00 UTC on January 1, 1970
                   -> URI -- ^ URI for the object
 publicUriUntilTime c obj time =
-    let act = S3Action c (obj_bucket obj) (obj_name obj) "" [] L.empty GET
+    let act = S3Action c (urlEncode (obj_bucket obj)) (urlEncode (obj_name obj)) "" [] L.empty GET
     in preSignedURI act time
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
@@ -99,8 +99,8 @@ getObjectWithMethod :: RequestMethod -- ^ Method to use for retrieval (GET/HEAD)
                     -> S3Object      -- ^ Object to request
                     -> IO (AWSResult S3Object)
 getObjectWithMethod m aws obj =
-    do res <- Auth.runAction (S3Action aws (obj_bucket obj)
-                                           (obj_name obj)
+    do res <- Auth.runAction (S3Action aws (urlEncode (obj_bucket obj))
+                                           (urlEncode (obj_name obj))
                                            ""
                                            (obj_headers obj)
                                            L.empty m)
@@ -123,8 +123,8 @@ headersFromResponse r =
 deleteObject :: AWSConnection      -- ^ AWS connection information
              -> S3Object           -- ^ Object to delete
              -> IO (AWSResult ())  -- ^ Server response
-deleteObject aws obj = do res <- Auth.runAction (S3Action aws (obj_bucket obj)
-                                                              (obj_name obj)
+deleteObject aws obj = do res <- Auth.runAction (S3Action aws (urlEncode (obj_bucket obj))
+                                                              (urlEncode (obj_name obj))
                                                               ""
                                                               (obj_headers obj)
                                                               L.empty DELETE)
@@ -136,8 +136,8 @@ copyObject :: AWSConnection            -- ^ AWS connection information
               -> S3Object                 -- ^ Destination object
               -> IO (AWSResult S3Object)  -- ^ Server response
 copyObject aws srcobj destobj =
-    do res <- Auth.runAction (S3Action aws (obj_bucket destobj)
-                                           (obj_name destobj)
+    do res <- Auth.runAction (S3Action aws (urlEncode (obj_bucket destobj))
+                                           (urlEncode (obj_name destobj))
                                            ""
                                            (copy_headers)
                                            L.empty PUT)
@@ -146,6 +146,7 @@ copyObject aws srcobj destobj =
              populate_obj_from x =
                  destobj { obj_data = (rspBody x),
                            obj_headers = (headersFromResponse x) }
-             copy_headers = [("x-amz-copy-source", -- TODO: verify this becomes URL-encoded
-                              ("/"++ (obj_bucket srcobj) ++ "/" ++ (obj_name srcobj)))]
+             copy_headers = [("x-amz-copy-source",
+                              ("/"++ (urlEncode (obj_bucket srcobj))
+                               ++ "/" ++ (urlEncode (obj_name srcobj))))]
 
