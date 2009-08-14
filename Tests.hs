@@ -30,13 +30,18 @@ tests =
              TestLabel "S3 Copy Test" s3CopyTest,
              TestLabel "Bucket Naming Test" bucketNamingTest]
 
-testBucket = "hS3-test"
+testBucket = "hs3-test"
 
 testObjectTemplate = S3Object testBucket "hS3-object-test" "text/plain"
                      [("x-amz-meta-foo", "bar"),
                       ("x-amz-meta-french", "Bonjour, ça va?"),
                       ("x-amz-meta-smiley", "☺")
                       ] (L.pack "Hello S3!")
+
+testSourceTemplate = S3Object testBucket "hS3-object-source" "text/plain"
+                         [] (L.pack "testing")
+testDestinationTemplate = S3Object testBucket "hS3-object-destination" "text/plain"
+                         [] (L.empty)
 
 -- | A sequence of several operations.
 s3OperationsTest =
@@ -94,25 +99,24 @@ s3CopyTest =
     TestCase (
               do c <- getConn
                  -- Bucket Creation
-                 bucket <- testCreateBucket c
-                 bucketC <- testCreateBucket c
+                 b <- testCreateBucket c
+                 d <- testCreateBucket c
                  finally (
-                       do let testObj = testObjectTemplate {obj_bucket = bucket}
-                          let copyObj = testObjectTemplate {obj_bucket = bucketC,
-                                                            obj_name = "hS3-copy-test"}
+                       do let srcObj = testSourceTemplate {obj_bucket = d}
+                          let destObj = testDestinationTemplate {obj_bucket = b}
                           -- Object send
-                          testSendObject c testObj
+                          testSendObject c srcObj
                           -- Object copy
-                          testCopyObject c testObj copyObj
+                          testCopyObject c srcObj destObj
                           -- Object get info from copied object
-                          testGetObjectInfo c copyObj
+                          testGetObjectInfo c destObj
                          ) (
                           -- Empty buckets
-                       do testEmptyBucket c bucket
-                          testEmptyBucket c bucketC
+                       do testEmptyBucket c b
+                          testEmptyBucket c d
                           -- Destroy buckets
-                          testDeleteBucket c bucket
-                          testDeleteBucket c bucketC
+                          testDeleteBucket c b
+                          testDeleteBucket c d
                          )
              )
 
@@ -126,6 +130,12 @@ failOnError r f d = either
                          do assertFailure (show x)
                             return f)
                     (\x -> d x) r
+
+testCreateNamedBucket :: AWSConnection -> String -> IO ()
+testCreateNamedBucket c bucket =
+    do r <- createBucket c bucket
+       failOnError r ()
+              (const $ assertBool "bucket creation" True)
 
 testCreateBucket :: AWSConnection -> IO String
 testCreateBucket c =
@@ -211,7 +221,7 @@ testBucketGone :: AWSConnection -> String -> IO ()
 testBucketGone c bucket =
     getBucketLocation c bucket >>=
        either (\(AWSError code msg) -> assertEqual "Bucket is gone" "NotFound" code)
-              (\x -> do assertFailure "Bucket still there, should be gone (not fatal)"
+              (\x -> do assertFailure "Bucket still there, should be gone (sometimes slow, not fatal)"
                         return ())
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
