@@ -55,9 +55,9 @@ data StorageClass = STANDARD | REDUCED_REDUNDANCY
 storageHeader = "x-amz-storage-class"
 
 -- | Add required headers for the storage class.
---   Use this in combination with sendObject for new objects.  To
+--   Use this in combination with 'sendObject' for new objects.  To
 --   modify the storage class of existing objects, use
---   rewriteStorageClass.  Using reduced redundancy for object storage
+--   'rewriteStorageClass'.  Using reduced redundancy for object storage
 --   trades off redundancy for storage costs.
 setStorageClass :: StorageClass -- ^ Storage class to request
                 -> S3Object -- ^ Object to modify
@@ -177,11 +177,21 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (urlEncode (obj_bu
                                                               L.empty DELETE)
                           return (either Left (\_ -> Right ()) res)
 
--- | Copy object from one bucket to another (or the same bucket).
+-- | Copy object from one bucket to another (or the same bucket), preserving the original headers.
+--   Headers from @destobj@ are sent, while only the
+--   bucket and name of @srcobj@ are used.  For the best
+--   performance, when changing headers during a copy, use the
+--   'copyObjectWithReplace' function.  For conditional copying, the
+--   following headers set on the destination object may be used:
+--   @x-amz-copy-source-if-match@, @x-amz-copy-source-if-none-match@,
+--   @x-amz-copy-source-if-unmodified-since@, or
+--   @x-amz-copy-source-if-modified-since@.  See
+--   <http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/index.html?RESTObjectCOPY.html>
+--   for more details.
 copyObject :: AWSConnection            -- ^ AWS connection information
-              -> S3Object                 -- ^ Source object (bucket+name)
+              -> S3Object                 -- ^ Source object (bucket+name only)
               -> S3Object                 -- ^ Destination object
-              -> IO (AWSResult S3Object)  -- ^ Server response
+              -> IO (AWSResult S3Object)  -- ^ Server response, headers include version information
 copyObject aws srcobj destobj =
     do res <- Auth.runAction (S3Action aws (urlEncode (obj_bucket destobj))
                                            (urlEncode (obj_name destobj))
