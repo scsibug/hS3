@@ -55,7 +55,7 @@ data S3Bucket = S3Bucket { bucket_name :: String,
 --   without of naming conflicts.
 createBucketWithPrefixIn :: AWSConnection -- ^ AWS connection information
                        -> String -- ^ Bucket name prefix
-                       -> String -- ^ "US" or "EU"
+                       -> String -- ^ Location ("US", "EU", "us-west-1", "ap-southeast-1")
                        -> IO (AWSResult String) -- ^ Server response, if
                                                 --   successful, the bucket
                                                 --   name is returned.
@@ -84,7 +84,7 @@ randomName =
 -- | Create a new bucket on S3 with the given name.
 createBucketIn :: AWSConnection -- ^ AWS connection information
              -> String -- ^ Proposed bucket name
-             -> String -- ^ "US" or "EU"
+             -> String -- ^ Location ("US", "EU", "us-west-1", "ap-southeast-1")
              -> IO (AWSResult ()) -- ^ Server response
 createBucketIn aws bucket location =
     let constraint = if location == "US"
@@ -105,7 +105,7 @@ createBucket aws bucket =
 -- | Physical location of the bucket. "US" or "EU"
 getBucketLocation :: AWSConnection  -- ^ AWS connection information
                   -> String  -- ^ Bucket name
-                  -> IO (AWSResult String) -- ^ Server response ("US" or "EU")
+                  -> IO (AWSResult String) -- ^ Server response ("US", "EU", "us-west-1", "ap-southeast-1", etc.)
 getBucketLocation aws bucket =
     do res <- Auth.runAction (S3Action aws bucket "?location" "" [] L.empty GET)
        case res of
