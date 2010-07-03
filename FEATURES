@@ -1,0 +1,36 @@
+The Amazon S3 service has a large number of features.  Those which are
+supported by hS3 are listed below.
+
+ * Creating buckets
+ * Creating bucket in a specified region (US/EU)
+ * Creating buckets with prefix and random suffix
+ * Deleting buckets
+ * Retrieving physical location of bucket
+ * Empty a bucket of all objects
+ * List buckets for an account
+ * List objects using prefix/marker/delimiter/maxkeys API
+ * List all objects, using multiple queries
+ * Sending objects
+ * Copying objects (preserving metadata)
+ * Deleting objects
+ * Retrieving object metadata
+ * Assigning custom 'amz-meta' headers to objects
+ * Forming pre-signed/expiring URLs for objects
+  * Expiring either on a given date, or number of seconds from current time
+ * Setting the storage class (Reduced Redundancy or Standard) for new objects
+ * Rewrite storage class of existing objects
+
+
+Missing feature list (incomplete).  We know the following features are not
+yet supported.  Some features may be available without changing the
+hS3 library, if you understand the S3 API in sufficient detail.  Patches to
+add this functionality would be greatly appreciated!
+
+ * ACLs (Access Control Lists)
+ * Object versioning
+ * Copy objects with REPLACE method, instead of COPY
+ * Any bittorrent functionality
+ * Delete markers
+ * Enabling/disabling bucket logging
+ * Distributions
+ * Payment configurations
