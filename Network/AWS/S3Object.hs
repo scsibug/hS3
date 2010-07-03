@@ -13,7 +13,7 @@ module Network.AWS.S3Object (
   -- * Function Types
   sendObject, copyObject, getObject, getObjectInfo, deleteObject,
   publicUriForSeconds, publicUriUntilTime, setStorageClass,
-  getStorageClass,
+  getStorageClass, rewriteStorageClass,
   -- * Data Types
   S3Object(..), StorageClass(..)
   ) where
@@ -54,22 +54,25 @@ data StorageClass = STANDARD | REDUCED_REDUNDANCY
 -- Amazon header key for storage class
 storageHeader = "x-amz-storage-class"
 
--- See http://docs.amazonwebservices.com/AmazonS3/index.html?DataDurability.html
--- for tips on implementing RRS...
-
 -- | Add required headers for the storage class.
---   Using reduced redundancy for object storage trades off redundancy
---   for storage costs.
-setStorageClass :: StorageClass -> S3Object -> S3Object
+--   Use this in combination with sendObject for new objects.  To
+--   modify the storage class of existing objects, use
+--   rewriteStorageClass.  Using reduced redundancy for object storage
+--   trades off redundancy for storage costs.
+setStorageClass :: StorageClass -- ^ Storage class to request
+                -> S3Object -- ^ Object to modify
+                -> S3Object -- ^ Object with storage class headers set, ready to be sent
 setStorageClass sc obj = obj {obj_headers = addToAL
                                             (obj_headers obj)
                                             storageHeader (show sc)}
 
--- | Retrieve the storage class of an S3Object.  Does not work for
---   objects retrieved with getObject, since the required header
---   values are not returned.  Use getObjects from S3Bucket module to
+-- | Retrieve the storage class of a local S3Object.
+--   Does not work for objects retrieved with 'getObject', since the
+--   required header values are not returned.  Use
+--   'getObjectStorageClass' or 'listObjects' from S3Bucket module to
 --   determine storage class of existing objects.
-getStorageClass :: S3Object -> Maybe StorageClass
+getStorageClass :: S3Object -- ^ Object to inspect
+                -> Maybe StorageClass -- ^ Requested storage class, Nothing if unspecified
 getStorageClass obj = case stg_values of
                         [] -> Nothing
                         x -> Just (read (head x))
@@ -77,6 +80,18 @@ getStorageClass obj = case stg_values of
       hdrs = obj_headers obj
       stg_hdrs = filter (\x -> fst x == storageHeader) hdrs
       stg_values = map fst stg_hdrs
+
+-- | Change the storage class (and only the storage class) of an existing object.
+--   This actually performs a copy to the same location, preserving metadata.
+--   It is not clear to me whether ACLs are preserved when copying to the same location.
+--   For best performance, we must not change other headers during storage class
+--   changes.
+rewriteStorageClass :: AWSConnection -- ^ AWS connection information
+                    -> StorageClass -- ^ New storage class for object
+                    -> S3Object -- ^ Object to modify
+                    -> IO (AWSResult S3Object) -- ^ Server response
+rewriteStorageClass aws sc obj =
+    copyObject aws obj (setStorageClass sc (obj {obj_headers = []}))
 
 -- | Send data for an object.
 sendObject :: AWSConnection      -- ^ AWS connection information
@@ -164,7 +179,7 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (urlEncode (obj_bu
 
 -- | Copy object from one bucket to another (or the same bucket).
 copyObject :: AWSConnection            -- ^ AWS connection information
-              -> S3Object                 -- ^ Source object
+              -> S3Object                 -- ^ Source object (bucket+name)
               -> S3Object                 -- ^ Destination object
               -> IO (AWSResult S3Object)  -- ^ Server response
 copyObject aws srcobj destobj =
@@ -181,4 +196,6 @@ copyObject aws srcobj destobj =
              copy_headers = [("x-amz-copy-source",
                               ("/"++ (urlEncode (obj_bucket srcobj))
                                ++ "/" ++ (urlEncode (obj_name srcobj))))]
+                            ++ (obj_headers destobj)
+
 

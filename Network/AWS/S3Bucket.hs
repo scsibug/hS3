@@ -14,7 +14,7 @@ module Network.AWS.S3Bucket (
                createBucketIn, createBucket, createBucketWithPrefixIn,
                createBucketWithPrefix, deleteBucket, getBucketLocation,
                emptyBucket, listBuckets, listObjects, listAllObjects,
-               isBucketNameValid,
+               isBucketNameValid, getObjectStorageClass,
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
@@ -241,6 +241,16 @@ listAllObjects aws bucket lp =
                                       either (\x -> return (Left x))
                                              (\x -> return (Right (lr ++ x))) next_set
                       (False,lr) -> return (Right lr)
+
+-- | Retrieve the storage class of an object from S3.
+--   For checking more than one object's storage class efficiently,
+--   use listObjects.
+getObjectStorageClass :: AWSConnection
+                      -> S3Object
+                      -> IO (AWSResult StorageClass)
+getObjectStorageClass c obj =
+    do res <- listObjects c (obj_bucket obj) (ListRequest (obj_name obj) "" "" 1)
+       return (either Left (\(t,xs) -> Right (head (map storageClass xs))) res)
 
 -- | Determine if ListBucketResult is truncated.  It would make sense
 --   to combine this with the query for list results, so we didn't

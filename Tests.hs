@@ -33,7 +33,8 @@ tests =
      TestLabel "S3 Copy Test" s3CopyTest,
      TestLabel "S3 Location Test" s3LocationTest,
      TestLabel "Bucket Naming Test" bucketNamingTest,
-     TestLabel "Reduced Redundancy Test" reducedRedundancyTest
+     TestLabel "Reduced Redundancy Creation Test" reducedRedundancyCreateTest,
+     TestLabel "Reduced Redundancy Existing Test" reducedRedundancyExistingTest
     ]
 
 testBucket = "hs3-test"
@@ -247,7 +248,7 @@ testBucketGone c bucket =
               (\x -> do assertFailure "Bucket still there, should be gone (sometimes slow, not fatal)"
                         return ())
 
-reducedRedundancyTest =
+reducedRedundancyCreateTest =
     TestCase (
               do c <- getConn
                  b <- testCreateBucket c
@@ -255,10 +256,30 @@ reducedRedundancyTest =
                  let testObj = testObjectTemplate {obj_bucket = b, obj_name = rr}
                  let rrTestObj = setStorageClass REDUCED_REDUNDANCY testObj
                  testSendObject c rrTestObj
-                 r <- listObjects c b (ListRequest rr "" "" 1)
+                 r <- getObjectStorageClass c testObj
                  failOnError r ()
-                        (\(t,xs) -> putStrLn (show xs) >> assertEqual "storage class is reduced-redundancy"
-                                   REDUCED_REDUNDANCY (head (map storageClass xs)))
+                        (\sc -> assertEqual "storage class is reduced-redundancy"
+                               REDUCED_REDUNDANCY sc)
+             )
+
+reducedRedundancyExistingTest =
+    TestCase (
+              do c <- getConn
+                 b <- testCreateBucket c
+                 let rr = "reduced-redundancy"
+                 let testObj = testObjectTemplate {obj_bucket = b, obj_name = rr}
+                 testSendObject c testObj
+                 rewriteStorageClass c REDUCED_REDUNDANCY testObj
+                 r <- getObjectStorageClass c testObj
+                 failOnError r ()
+                        (\sc -> assertEqual "storage class is reduced-redundancy"
+                               REDUCED_REDUNDANCY sc)
+                 -- Set storage class back to STANDARD
+                 rewriteStorageClass c STANDARD testObj
+                 s <- getObjectStorageClass c testObj
+                 failOnError s ()
+                        (\sc -> assertEqual "storage class switched back to standard"
+                               STANDARD sc)
              )
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
