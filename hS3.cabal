@@ -33,7 +33,8 @@ source-repository head
 Library
 
   Build-depends:  base >= 3 && < 5, HTTP >= 4000.0.0, Crypto >= 4.1.0, hxt, network,
-                regex-compat, old-time, random, old-locale, dataenc, utf8-string, bytestring
+                regex-compat, old-time, random, old-locale, dataenc, utf8-string, bytestring,
+                MissingH >= 0.18.6
 
   Exposed-modules:
         Network.AWS.S3Object,

@@ -32,7 +32,8 @@ tests =
      TestLabel "S3 Operations Test" s3OperationsTest,
      TestLabel "S3 Copy Test" s3CopyTest,
      TestLabel "S3 Location Test" s3LocationTest,
-     TestLabel "Bucket Naming Test" bucketNamingTest
+     TestLabel "Bucket Naming Test" bucketNamingTest,
+     TestLabel "Reduced Redundancy Test" reducedRedundancyTest
     ]
 
 testBucket = "hs3-test"
@@ -246,6 +247,20 @@ testBucketGone c bucket =
               (\x -> do assertFailure "Bucket still there, should be gone (sometimes slow, not fatal)"
                         return ())
 
+reducedRedundancyTest =
+    TestCase (
+              do c <- getConn
+                 b <- testCreateBucket c
+                 let rr = "reduced-redundancy"
+                 let testObj = testObjectTemplate {obj_bucket = b, obj_name = rr}
+                 let rrTestObj = setStorageClass REDUCED_REDUNDANCY testObj
+                 testSendObject c rrTestObj
+                 r <- listObjects c b (ListRequest rr "" "" 1)
+                 failOnError r ()
+                        (\(t,xs) -> putStrLn (show xs) >> assertEqual "storage class is reduced-redundancy"
+                                   REDUCED_REDUNDANCY (head (map storageClass xs)))
+             )
+
 getConn = do mConn <- amazonS3ConnectionFromEnv
              return (fromJust mConn)
 
@@ -255,4 +270,3 @@ headersToIgnore = ["x-amz-id-2", "x-amz-request-id"]
 
 realMetadata :: [(String, b)] -> [(String, b)]
 realMetadata = filter (\x -> fst x `notElem` headersToIgnore)
-

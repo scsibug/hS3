@@ -199,7 +199,8 @@ data ListResult =
       key :: String, -- ^ Name of object
       last_modified :: String, -- ^ Last modification date
       etag :: String, -- ^ MD5
-      size :: Integer -- ^ Bytes of object data
+      size :: Integer, -- ^ Bytes of object data
+      storageClass :: StorageClass -- ^ Storage class of the object
     } deriving (Show)
 
 -- | Is a result set response truncated?
@@ -267,8 +268,9 @@ processListResults = deep (isElem >>> hasName "Contents") >>>
                      ((text <<< atTag "Key") &&&
                       (text <<< atTag "LastModified") &&&
                       (text <<< atTag "ETag") &&&
-                      (text <<< atTag "Size")) >>>
-                     arr (\(a,(b,(c,d))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d))
+                      (text <<< atTag "Size") &&&
+                      (text <<< atTag "StorageClass")) >>>
+                     arr (\(a,(b,(c,(d,e)))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d) (read e))
 
 -- | Check Amazon guidelines on bucket naming.  (missing test for IP-like names)
 isBucketNameValid :: String -> Bool

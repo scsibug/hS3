@@ -12,9 +12,10 @@
 module Network.AWS.S3Object (
   -- * Function Types
   sendObject, copyObject, getObject, getObjectInfo, deleteObject,
-  publicUriForSeconds, publicUriUntilTime,
+  publicUriForSeconds, publicUriUntilTime, setStorageClass,
+  getStorageClass,
   -- * Data Types
-  S3Object(..)
+  S3Object(..), StorageClass(..)
   ) where
 
 import Network.AWS.Authentication as Auth
@@ -23,6 +24,7 @@ import Network.AWS.AWSConnection
 import Network.HTTP
 import Network.URI
 import System.Time
+import Data.List.Utils
 
 import qualified Data.ByteString.Lazy.Char8 as L
 
@@ -45,6 +47,36 @@ data S3Object =
                -- | Object data.
                obj_data :: L.ByteString
     } deriving (Read, Show)
+
+data StorageClass = STANDARD | REDUCED_REDUNDANCY
+  deriving (Read, Show, Eq)
+
+-- Amazon header key for storage class
+storageHeader = "x-amz-storage-class"
+
+-- See http://docs.amazonwebservices.com/AmazonS3/index.html?DataDurability.html
+-- for tips on implementing RRS...
+
+-- | Add required headers for the storage class.
+--   Using reduced redundancy for object storage trades off redundancy
+--   for storage costs.
+setStorageClass :: StorageClass -> S3Object -> S3Object
+setStorageClass sc obj = obj {obj_headers = addToAL
+                                            (obj_headers obj)
+                                            storageHeader (show sc)}
+
+-- | Retrieve the storage class of an S3Object.  Does not work for
+--   objects retrieved with getObject, since the required header
+--   values are not returned.  Use getObjects from S3Bucket module to
+--   determine storage class of existing objects.
+getStorageClass :: S3Object -> Maybe StorageClass
+getStorageClass obj = case stg_values of
+                        [] -> Nothing
+                        x -> Just (read (head x))
+    where
+      hdrs = obj_headers obj
+      stg_hdrs = filter (\x -> fst x == storageHeader) hdrs
+      stg_values = map fst stg_hdrs
 
 -- | Send data for an object.
 sendObject :: AWSConnection      -- ^ AWS connection information
