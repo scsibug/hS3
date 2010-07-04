@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy.Char8 as L
 import Control.Exception(finally)
 import IO(bracket)
 import Control.Concurrent(threadDelay)
-
+import Data.List.Utils(hasKeyAL)
 import Test.HUnit
 
 -- | Run the tests
@@ -32,6 +32,7 @@ tests =
     [
      TestLabel "S3 Operations Test" s3OperationsTest,
      TestLabel "S3 Copy Test" s3CopyTest,
+     TestLabel "S3 Copy/Replace Test" s3CopyReplaceTest,
      TestLabel "S3 Location Test" s3LocationTest,
      TestLabel "Bucket Naming Test" bucketNamingTest,
      TestLabel "Reduced Redundancy Creation Test" reducedRedundancyCreateTest,
@@ -127,15 +128,60 @@ s3CopyTest =
                  -- Bucket Creation
                  b <- testCreateBucket c
                  d <- testCreateBucket c
+                 let srcHeader = "x-amz-meta-src"
+                 let srcValue = "foo"
                  finally (
-                       do let srcObj = testSourceTemplate {obj_bucket = d}
+                       do let srcObj = testSourceTemplate {obj_bucket = d, obj_headers = [(srcHeader,srcValue)]}
                           let destObj = testDestinationTemplate {obj_bucket = b}
                           -- Object send
                           testSendObject c srcObj
+                          -- Verify headers were set on original object
+                          sr <- getObject c srcObj
+                          failOnError sr ()
+                                          (\x -> assertBool "Original sent object has custom headers"
+                                                (hasKeyAL srcHeader (obj_headers x))
+                                          )
                           -- Object copy
                           testCopyObject c srcObj destObj
+                          -- Verify destination object contains same added header as source object
+                          testGetObjectInfo c (destObj {obj_headers = [(srcHeader,srcValue)]})
+                         ) (
+                          -- Empty buckets
+                       do testEmptyBucket c b
+                          testEmptyBucket c d
+                          -- Destroy buckets
+                          testDeleteBucket c b
+                          testDeleteBucket c d
+                         )
+             )
+
+s3CopyReplaceTest =
+    TestCase (
+              do c <- getConn
+                 -- Bucket Creation
+                 b <- testCreateBucket c
+                 d <- testCreateBucket c
+                 let srcHeader = "x-amz-meta-src"
+                 let srcValue = "foo"
+                 finally (
+                       do let srcObj = testSourceTemplate {obj_bucket = d, obj_headers = [(srcHeader,srcValue)]}
+                          let destObj = testDestinationTemplate {obj_bucket = b}
+                          -- Object send
+                          testSendObject c srcObj
+                          sr <- getObject c srcObj
+                          failOnError sr ()
+                                          (\x -> assertBool "Original sent object has custom headers"
+                                                (hasKeyAL srcHeader (obj_headers x))
+                                          )
+                          -- Object copy
+                          testCopyObjectWithReplace c srcObj destObj
                           -- Object get info from copied object
                           testGetObjectInfo c destObj
+                          dr <- getObject c destObj
+                          failOnError dr ()
+                                          (\x -> assertBool "Copied object w/ replace does not have source headers"
+                                                (not (hasKeyAL srcHeader (obj_headers x)))
+                                          )
                          ) (
                           -- Empty buckets
                        do testEmptyBucket c b
@@ -196,6 +242,12 @@ testCopyObject c srco desto =
        failOnError r ()
                (const $ assertBool "object copied" True)
 
+testCopyObjectWithReplace :: AWSConnection -> S3Object -> S3Object -> IO ()
+testCopyObjectWithReplace c srco desto =
+    do r <- copyObjectWithReplace c srco desto
+       failOnError r ()
+               (const $ assertBool "object copied" True)
+
 testGetObject :: AWSConnection -> S3Object -> IO ()
 testGetObject c o =
     do r <- getObject c o
@@ -207,6 +259,7 @@ testGetObject c o =
                                         (realMetadata (obj_headers x))
               )
 
+-- Test to ensure an object on S3 matches the headers passed to this function.
 testGetObjectInfo :: AWSConnection -> S3Object -> IO ()
 testGetObjectInfo c o =
     do r <- getObject c o
