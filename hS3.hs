@@ -29,9 +29,10 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    -- create / delete bucket
+    -- create / empty / delete bucket
     ["cb", name, location] -> withConn $ \g -> createBucketIn g name location
     ["db", name ] ->  withConn $ \g -> deleteBucket g name
+    ["eb", name ] ->  withConn $ \g -> emptyBucket g name
     -- objects
     ["go", bucket, gkey ] ->
         do c <- withConn $ \g -> getObject g $ S3Object bucket gkey "" [] L.empty
@@ -53,6 +54,7 @@ usage = putStr $ unlines [
         , ""
         , "cb <name> [EU, US] : create bucket"
         , "db <name> : delete bucket"
+        , "eb <name> : empty bucket"
         , "do <bucket> <key> : delete object"
         , ""
         , "lbs : list buckets"
