@@ -20,6 +20,7 @@ import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy.Char8 as L
 import Control.Exception(finally)
 import IO(bracket)
+import Control.Concurrent(threadDelay)
 
 import Test.HUnit
 
@@ -75,6 +76,7 @@ s3OperationsTest =
                  -- Delete bucket
                  testDeleteBucket c bucket
                  -- Bucket should be gone
+                 threadDelay 3000000 -- sleep 3 sec, since bucket isn't always unavailable immediately
                  testBucketGone c bucket
              )
 
