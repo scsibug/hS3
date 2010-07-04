@@ -11,9 +11,10 @@
 
 module Network.AWS.S3Object (
   -- * Function Types
-  sendObject, copyObject, getObject, getObjectInfo, deleteObject,
-  publicUriForSeconds, publicUriUntilTime, setStorageClass,
-  getStorageClass, rewriteStorageClass,
+  sendObject, copyObject, copyObjectWithReplace, getObject,
+  getObjectInfo, deleteObject, publicUriForSeconds,
+  publicUriUntilTime, setStorageClass, getStorageClass,
+  rewriteStorageClass,
   -- * Data Types
   S3Object(..), StorageClass(..)
   ) where
