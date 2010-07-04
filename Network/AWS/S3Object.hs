@@ -208,4 +208,16 @@ copyObject aws srcobj destobj =
                                ++ "/" ++ (urlEncode (obj_name srcobj))))]
                             ++ (obj_headers destobj)
 
-
+-- | Copy object from one bucket to another (or the same bucket), replacing headers.
+--   Any headers from @srcobj@ are ignored, and only those
+--   set in @destobj@ are used.
+copyObjectWithReplace :: AWSConnection            -- ^ AWS connection information
+                      -> S3Object                 -- ^ Source object (bucket+name only)
+                      -> S3Object                 -- ^ Destination object
+                      -> IO (AWSResult S3Object)  -- ^ Server response, headers include version information
+copyObjectWithReplace aws srcobj destobj =
+    copyObject aws srcobj (destobj {obj_headers =
+                                    (addToAL (obj_headers destobj)
+                                     "x-amz-metadata-directive"
+                                     "REPLACE")
+                                   })

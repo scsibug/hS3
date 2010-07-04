@@ -28,7 +28,6 @@ add this functionality would be greatly appreciated!
 
  * ACLs (Access Control Lists)
  * Object versioning
- * Copy objects with REPLACE method, instead of COPY
  * Any bittorrent functionality
  * Delete markers
  * Enabling/disabling bucket logging
