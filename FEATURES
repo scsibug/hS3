@@ -28,8 +28,8 @@ add this functionality would be greatly appreciated!
 
  * ACLs (Access Control Lists)
  * Object versioning
- * Any bittorrent functionality
+ * Bittorrent
  * Delete markers
  * Enabling/disabling bucket logging
- * Distributions
  * Payment configurations
+ * Cloudfront Distributions (requires HTTPS)
