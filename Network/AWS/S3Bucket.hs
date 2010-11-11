@@ -15,11 +15,14 @@ module Network.AWS.S3Bucket (
                createBucketWithPrefix, deleteBucket, getBucketLocation,
                emptyBucket, listBuckets, listObjects, listAllObjects,
                isBucketNameValid, getObjectStorageClass,
+               getVersioningConfiguration, setVersioningConfiguration,
                -- * Data Types
                S3Bucket(S3Bucket, bucket_name, bucket_creation_date),
                ListRequest(..),
                ListResult(..),
-               IsTruncated
+               IsTruncated,
+               VersioningConfiguration(..),
+               VersioningStatus(..)
               ) where
 
 import Network.AWS.Authentication as Auth
@@ -49,6 +52,15 @@ import Codec.Text.Raw
 data S3Bucket = S3Bucket { bucket_name :: String,
                            bucket_creation_date :: String
                          } deriving (Show, Eq)
+
+data VersioningConfiguration = VersioningConfiguration {
+      versioningStatus :: VersioningStatus,
+      mfaDeleteEnabled :: Bool
+}
+  deriving (Read, Show, Eq)
+
+data VersioningStatus = VersioningDisabled | VersioningEnabled | VersioningSuspended
+                        deriving (Read, Show, Eq)
 
 -- | Create a new bucket on S3 with the given prefix, and a random
 --   suffix.  This can be used to programatically create buckets
@@ -112,7 +124,6 @@ getBucketLocation aws bucket =
          Left x -> return (Left x)
          Right y -> do bs <- parseBucketLocationXML (L.unpack (rspBody y))
                        return (Right bs)
-
 
 parseBucketLocationXML :: String -> IO String
 parseBucketLocationXML s =
@@ -269,7 +280,6 @@ processTruncation = (text <<< atTag "IsTruncated")
                                      "false" -> False
                                      otherwise -> False)
 
-
 getListResults :: String -> IO [ListResult]
 getListResults s = runX (readString [(a_validate,v_0)] s >>> processListResults)
 
@@ -292,6 +302,55 @@ isBucketNameValid n = and checks where
               (not (isInfixOf ".-" n)),
               (not (isInfixOf "-." n)),
               ((last n) /= '-')]
+
+-- | Set the versioning configuration of a bucket (MFA not yet supported).
+setVersioningConfiguration :: AWSConnection -- ^ AWS connection information
+                           -> String -- ^ Bucket to modify
+                           -> VersioningConfiguration -- ^ Desired versioning configuration
+                           -> IO (AWSResult ()) -- ^ Server response
+setVersioningConfiguration aws bucket vc =
+    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] (L.pack (versioningConfigurationToXML vc)) PUT)
+       case res of
+         Left x -> return (Left x)
+         Right y -> return (Right ())
+
+versioningConfigurationToXML :: VersioningConfiguration -> String
+versioningConfigurationToXML vc =
+    case vc of
+      VersioningConfiguration VersioningEnabled _ -> versioningConfigXml "Enabled"
+      VersioningConfiguration _ _ -> versioningConfigXml "Suspended"
+
+versioningConfigXml :: String -> String
+versioningConfigXml status =
+  "<VersioningConfiguration xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><Status>" ++ status ++  "</Status></VersioningConfiguration>"
+
+-- | Check versioning and MFA configuration of a bucket.
+getVersioningConfiguration :: AWSConnection -- ^ AWS connection information
+                           -> String -- ^ Bucket name to inquire on
+                           -> IO (AWSResult VersioningConfiguration) -- ^ Server response
+getVersioningConfiguration aws bucket =
+    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] L.empty GET)
+       case res of
+         Left x -> return (Left x)
+         Right y -> do vc <- parseVersionConfigXML (L.unpack (rspBody y))
+                       return (Right vc)
+
+parseVersionConfigXML :: String -> IO (VersioningConfiguration)
+parseVersionConfigXML s =
+    do results <- runX (readString [(a_validate,v_0)] s >>> processVersionConfig)
+       return $ case results of
+                  [] -> (VersioningConfiguration VersioningSuspended True)
+                  x:_ -> x
+
+processVersionConfig =
+  deep (isElem >>> hasName "VersioningConfiguration") >>>
+    ((text <<< atTag "Status")
+    >>> arr (\v -> case (map toLower v) of
+                    "suspended" -> (VersioningConfiguration VersioningSuspended False)
+                    "enabled" -> (VersioningConfiguration VersioningEnabled False)
+            ))
+    <+>
+    arr (\x -> (VersioningConfiguration VersioningDisabled False))
 
 -- | Remove quote characters from a 'String'.
 unquote :: String -> String

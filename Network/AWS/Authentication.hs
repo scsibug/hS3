@@ -38,7 +38,7 @@ import Data.Char (intToDigit, digitToInt, ord, chr, toLower)
 import Data.Bits ((.&.))
 import qualified Codec.Binary.UTF8.String as US
 
-import Data.List (sortBy, groupBy, intersperse)
+import Data.List (sortBy, groupBy, intersperse, isInfixOf)
 import Data.Maybe
 
 import System.Time
@@ -106,7 +106,7 @@ addAuthenticationHeader :: S3Action     -- ^ Action with authentication data
                         -> HTTP.HTTPRequest L.ByteString -- ^ Authenticated request
 addAuthenticationHeader act req = insertHeader HdrAuthorization auth_string req
     where auth_string = "AWS " ++ awsAccessKey conn ++ ":" ++ signature
-          signature = makeSignature conn (stringToSign act req)
+          signature = (makeSignature conn (stringToSign act req))
           conn = s3conn act
 
 -- | Sign a string using the given authentication data
@@ -206,12 +206,16 @@ amzHeader = "x-amz-"
 
 -- | Extract resource name, as required for signing.
 canonicalizeResource :: S3Action -> String
-canonicalizeResource a = bucket ++ uri
+canonicalizeResource a = bucket ++ uri ++ subresource
     where uri = '/' : s3object a
           bucket = case (s3bucket a) of
                      b@(_:_) -> '/' : map toLower b
                      otherwise -> ""
-
+          subresource = case (subresource_match) of
+                          [] -> ""
+                          x:_ -> x
+          subresource_match = filter (\sr -> isInfixOf sr (s3query a))
+                              ["?versioning", "?torrent", "?logging", "?acl", "?location"]
 
 -- | Add a date string to a request.
 addDateToReq :: HTTP.HTTPRequest L.ByteString -- ^ Request to modify
@@ -267,13 +271,13 @@ runAction' a hostname = do
         let aReq = addAuthenticationHeader a $
                    addContentLengthHeader $
                    addDateToReq (requestFromAction a) cd
-        --print aReq -- Show request header
+        print aReq -- Show request header
         result <- simpleHTTP_ c aReq
         -- Show result header and body
-        -- print result
-        --case result of
-        --  Left a -> print ""
-        --  Right a -> print (rspBody a)
+        print result
+        case result of
+          Left a -> print ""
+          Right a -> print (rspBody a)
         close c
         createAWSResult a result
 

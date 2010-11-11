@@ -36,7 +36,8 @@ tests =
      TestLabel "S3 Location Test" s3LocationTest,
      TestLabel "Bucket Naming Test" bucketNamingTest,
      TestLabel "Reduced Redundancy Creation Test" reducedRedundancyCreateTest,
-     TestLabel "Reduced Redundancy Existing Test" reducedRedundancyExistingTest
+     TestLabel "Reduced Redundancy Existing Test" reducedRedundancyExistingTest,
+     TestLabel "Versioning Test" versioningTest
     ]
 
 testBucket = "hs3-test"
@@ -335,6 +336,23 @@ reducedRedundancyExistingTest =
                  failOnError s ()
                         (\sc -> assertEqual "storage class switched back to standard"
                                STANDARD sc)
+             )
+
+versioningTest =
+    TestCase (
+              do c <- getConn
+                 b <- testCreateBucket c
+                 r <- getVersioningConfiguration c b
+                 failOnError r ()
+                     (\vc -> assertEqual "versioning is disabled by default"
+                            (VersioningConfiguration VersioningDisabled False) vc)
+                 sr <- setVersioningConfiguration c b (VersioningConfiguration VersioningEnabled False)
+                 failOnError sr ()
+                     (\const -> assertBool "versioning set without error" True)
+                 ur <- getVersioningConfiguration c b
+                 failOnError ur ()
+                     (\vc -> assertEqual "versioning is now enabled"
+                            (VersioningConfiguration VersioningEnabled False) vc)
              )
 
 getConn = do mConn <- amazonS3ConnectionFromEnv
