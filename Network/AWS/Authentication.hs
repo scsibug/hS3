@@ -271,13 +271,13 @@ runAction' a hostname = do
         let aReq = addAuthenticationHeader a $
                    addContentLengthHeader $
                    addDateToReq (requestFromAction a) cd
-        print aReq -- Show request header
+        --print aReq -- Show request header
         result <- simpleHTTP_ c aReq
         -- Show result header and body
-        print result
-        case result of
-          Left a -> print ""
-          Right a -> print (rspBody a)
+        --print result
+        --case result of
+        --  Left a -> print ""
+        --  Right a -> print (rspBody a)
         close c
         createAWSResult a result
 
