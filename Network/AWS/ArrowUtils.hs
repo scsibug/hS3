@@ -15,7 +15,8 @@ module Network.AWS.ArrowUtils (
 where
 
 import Control.Arrow
-import Text.XML.HXT.Arrow
+import Control.Arrow.ArrowTree
+import Text.XML.HXT.Arrow.XmlArrow
 
 -- misc. functions for working with arrows (and HXT)
 

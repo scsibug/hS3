@@ -46,8 +46,13 @@ import System.Locale
 
 import Text.Regex
 
---import Control.Arrow()
-import Text.XML.HXT.Arrow
+import Control.Arrow
+import Control.Arrow.ArrowTree
+import Text.XML.HXT.Arrow.XmlArrow
+import Text.XML.HXT.Arrow.XmlOptions
+import Text.XML.HXT.DOM.XmlKeywords
+import Text.XML.HXT.Arrow.XmlState
+import Text.XML.HXT.Arrow.ReadDocument
 
 -- | An action to be performed using S3.
 data S3Action =
@@ -334,7 +339,7 @@ createAWSResult a b = either handleError handleSuccess b
 -- | Find the errors embedded in an XML message body from Amazon.
 parseRestErrorXML :: String -> IO ReqError
 parseRestErrorXML x =
-    do e <- runX (readString [(a_validate,v_0)] x
+    do e <- runX (readString [withValidate no] x
                                  >>> processRestError)
        case e of
          [] -> return (AWSError "NoErrorInMsg"

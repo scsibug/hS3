@@ -39,15 +39,22 @@ import qualified Data.ByteString.Lazy.Char8 as L
 import Data.Char (toLower, isAlphaNum)
 import Data.List (isInfixOf)
 
-import Text.XML.HXT.Arrow
 import qualified Data.Tree.NTree.TypeDefs
-import Control.Arrow
 
 import Control.Monad
 import System.Random (randomIO)
 import Codec.Utils
 import Data.Digest.MD5
 import Codec.Text.Raw
+
+import Control.Arrow
+import Control.Arrow.ArrowTree
+import Text.XML.HXT.Arrow.XmlArrow
+import Text.XML.HXT.Arrow.XmlOptions
+import Text.XML.HXT.DOM.XmlKeywords
+import Text.XML.HXT.Arrow.XmlState
+import Text.XML.HXT.Arrow.ReadDocument
+import Text.XML.HXT.DOM.TypeDefs
 
 data S3Bucket = S3Bucket { bucket_name :: String,
                            bucket_creation_date :: String
@@ -127,7 +134,7 @@ getBucketLocation aws bucket =
 
 parseBucketLocationXML :: String -> IO String
 parseBucketLocationXML s =
-    do results <- runX (readString [(a_validate,v_0)] s >>> processLocation)
+    do results <- runX (readString [withValidate no] s >>> processLocation)
        return $ case results of
                   [] -> "US"    -- not specified by S3, but they are in the US
                   x:_ -> x
@@ -182,7 +189,7 @@ listBuckets aws =
                        return (Right bs)
 
 parseBucketListXML :: String -> IO [S3Bucket]
-parseBucketListXML x = runX (readString [(a_validate,v_0)] x >>> processBuckets)
+parseBucketListXML x = runX (readString [withValidate no] x >>> processBuckets)
 
 processBuckets :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) S3Bucket
 processBuckets = deep (isElem >>> hasName "Bucket") >>>
@@ -268,7 +275,7 @@ getObjectStorageClass c obj =
 --   have to parse the XML twice.
 isListTruncated :: String -> IO Bool
 isListTruncated s =
-    do results <- runX (readString [(a_validate,v_0)] s >>> processTruncation)
+    do results <- runX (readString [withValidate no] s >>> processTruncation)
        return $ case results of
                   [] -> False
                   x:_ -> x
@@ -281,7 +288,7 @@ processTruncation = (text <<< atTag "IsTruncated")
                                      otherwise -> False)
 
 getListResults :: String -> IO [ListResult]
-getListResults s = runX (readString [(a_validate,v_0)] s >>> processListResults)
+getListResults s = runX (readString [withValidate no] s >>> processListResults)
 
 processListResults :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) ListResult
 processListResults = deep (isElem >>> hasName "Contents") >>>
@@ -337,7 +344,7 @@ getVersioningConfiguration aws bucket =
 
 parseVersionConfigXML :: String -> IO (VersioningConfiguration)
 parseVersionConfigXML s =
-    do results <- runX (readString [(a_validate,v_0)] s >>> processVersionConfig)
+    do results <- runX (readString [withValidate no] s >>> processVersionConfig)
        return $ case results of
                   [] -> (VersioningConfiguration VersioningSuspended True)
                   x:_ -> x

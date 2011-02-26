@@ -33,7 +33,7 @@ source-repository head
 
 Library
 
-  Build-depends:  base >= 3 && < 5, HTTP >= 4000.0.0, Crypto >= 4.1.0, hxt < 9.0.0, network,
+  Build-depends:  base >= 3 && < 5, HTTP >= 4000.0.0, Crypto >= 4.1.0, hxt >= 9.0.0 && < 10, network,
                 regex-compat, old-time, random, old-locale, dataenc, utf8-string, bytestring,
                 MissingH >= 0.18.6
 
