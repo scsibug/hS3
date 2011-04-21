@@ -70,7 +70,9 @@ data S3Action =
       -- | Body of action, if sending data
       s3body :: L.ByteString,
       -- | Type of action, 'PUT', 'GET', etc.
-      s3operation :: RequestMethod
+      s3operation :: RequestMethod,
+      -- | Optional content length, if known
+      s3contentlength :: Maybe String
     } deriving (Show)
 
 -- | Transform an 'S3Action' into an HTTP request.  Does not add
@@ -102,8 +104,15 @@ headersFromAction = map (\(k,v) -> case k of
 
 -- | Inspect HTTP body, and add a @Content-Length@ header with the
 --   correct length.
-addContentLengthHeader :: HTTP.HTTPRequest L.ByteString -> HTTP.HTTPRequest L.ByteString
-addContentLengthHeader req = insertHeader HdrContentLength (show (L.length (rqBody req))) req
+addContentLengthHeader :: Maybe String -> HTTP.HTTPRequest L.ByteString -> HTTP.HTTPRequest L.ByteString
+addContentLengthHeader mcl req = insertHeader HdrContentLength l req where
+    l = case mcl of
+          Nothing -> computeContentLength req
+          Just cl -> cl
+
+-- | Determine the actual content length
+computeContentLength :: HTTP.HTTPRequest L.ByteString -> String
+computeContentLength req = show (L.length (rqBody req))
 
 -- | Add AWS authentication header to an HTTP request.
 addAuthenticationHeader :: S3Action     -- ^ Action with authentication data
@@ -274,7 +283,7 @@ runAction' a hostname = do
 --bufferOps = lazyBufferOp
         cd <- httpCurrentDate
         let aReq = addAuthenticationHeader a $
-                   addContentLengthHeader $
+                   addContentLengthHeader (s3contentlength a) $
                    addDateToReq (requestFromAction a) cd
         --print aReq -- Show request header
         result <- simpleHTTP_ c aReq

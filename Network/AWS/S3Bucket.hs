@@ -110,7 +110,7 @@ createBucketIn aws bucket location =
                         then "" -- US == no body
                         else "<CreateBucketConfiguration><LocationConstraint>" ++ location ++ "</LocationConstraint></CreateBucketConfiguration>"
     in
-    do res <- Auth.runAction (S3Action aws bucket "" "" [] (L.pack constraint) PUT)
+    do res <- Auth.runAction (S3Action aws bucket "" "" [] (L.pack constraint) PUT Nothing)
        -- throw away the server response, return () on success
        return (either Left (\_ -> Right ()) res)
 
@@ -126,7 +126,7 @@ getBucketLocation :: AWSConnection  -- ^ AWS connection information
                   -> String  -- ^ Bucket name
                   -> IO (AWSResult String) -- ^ Server response ("US", "EU", "us-west-1", "ap-southeast-1", etc.)
 getBucketLocation aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "?location" "" [] L.empty GET)
+    do res <- Auth.runAction (S3Action aws bucket "?location" "" [] L.empty GET Nothing)
        case res of
          Left x -> return (Left x)
          Right y -> do bs <- parseBucketLocationXML (L.unpack (rspBody y))
@@ -149,7 +149,7 @@ deleteBucket :: AWSConnection -- ^ AWS connection information
              -> String -- ^ Bucket name to delete
              -> IO (AWSResult ()) -- ^ Server response
 deleteBucket aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "" "" [] L.empty DELETE)
+    do res <- Auth.runAction (S3Action aws bucket "" "" [] L.empty DELETE Nothing)
        return (either Left (\_ -> Right ()) res)
 
 -- | Empty a bucket of all objects.  Iterates through all objects
@@ -182,7 +182,7 @@ deleteObjects aws (x:xs) =
 listBuckets :: AWSConnection -- ^ AWS connection information
            -> IO (AWSResult [S3Bucket]) -- ^ Server response
 listBuckets aws =
-    do res <- Auth.runAction (S3Action aws "" "" "" [] L.empty GET)
+    do res <- Auth.runAction (S3Action aws "" "" "" [] L.empty GET Nothing)
        case res of
          Left x -> return (Left x)
          Right y -> do bs <- parseBucketListXML (L.unpack (rspBody y))
@@ -234,7 +234,7 @@ listObjects :: AWSConnection -- ^ AWS connection information
             -> IO (AWSResult (IsTruncated, [ListResult])) -- ^ Server response
 listObjects aws bucket lreq =
     do res <- Auth.runAction (S3Action aws bucket ""
-                                           ('?' : show lreq) [] L.empty GET)
+                                           ('?' : show lreq) [] L.empty GET Nothing)
        case res of
          Left x -> return (Left x)
          Right y -> do let objs = L.unpack (rspBody y)
@@ -316,7 +316,7 @@ setVersioningConfiguration :: AWSConnection -- ^ AWS connection information
                            -> VersioningConfiguration -- ^ Desired versioning configuration
                            -> IO (AWSResult ()) -- ^ Server response
 setVersioningConfiguration aws bucket vc =
-    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] (L.pack (versioningConfigurationToXML vc)) PUT)
+    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] (L.pack (versioningConfigurationToXML vc)) PUT Nothing)
        case res of
          Left x -> return (Left x)
          Right y -> return (Right ())
@@ -336,7 +336,7 @@ getVersioningConfiguration :: AWSConnection -- ^ AWS connection information
                            -> String -- ^ Bucket name to inquire on
                            -> IO (AWSResult VersioningConfiguration) -- ^ Server response
 getVersioningConfiguration aws bucket =
-    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] L.empty GET)
+    do res <- Auth.runAction (S3Action aws bucket "" "?versioning" [] L.empty GET Nothing)
        case res of
          Left x -> return (Left x)
          Right y -> do vc <- parseVersionConfigXML (L.unpack (rspBody y))
