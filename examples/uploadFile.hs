@@ -24,13 +24,17 @@ import System.Environment
 import Data.Maybe
 import System.IO
 import qualified Data.ByteString.Lazy.Char8 as L
+import System.Posix.Files
 
 main = do argv <- getArgs
           let bucket : key : filename : xs = argv
           f <- L.readFile filename
+          contentFS <- getFileStatus filename
+          let offset = fileSize contentFS
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          let obj = S3Object bucket key "text/plain" [] f
+          print ("offset is "++(show offset))
+          let obj = S3Object bucket key "text/plain" [("Content-Length",(show offset))] f
           res <- sendObject conn obj
           either (putStrLn . prettyReqError)
                  (const $ putStrLn ("Creation of " ++ key ++ " successful."))
