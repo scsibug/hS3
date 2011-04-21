@@ -107,7 +107,7 @@ sendObject aws obj =
                               ""
                               (("Content-Type", (content_type obj)) :
                                obj_headers obj)
-                              (obj_data obj) PUT (lookup "Content-Length" (obj_headers obj)))
+                              (obj_data obj) PUT)
        return (either Left (\_ -> Right ()) res)
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
@@ -118,7 +118,7 @@ publicUriUntilTime :: AWSConnection -- ^ AWS connection information
                              --   00:00:00 UTC on January 1, 1970
                   -> URI -- ^ URI for the object
 publicUriUntilTime c obj time =
-    let act = S3Action c (urlEncode (obj_bucket obj)) (urlEncode (obj_name obj)) "" [] L.empty GET Nothing
+    let act = S3Action c (urlEncode (obj_bucket obj)) (urlEncode (obj_name obj)) "" [] L.empty GET
     in preSignedURI act time
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
@@ -154,7 +154,7 @@ getObjectWithMethod m aws obj =
                                            (urlEncode (obj_name obj))
                                            ""
                                            (obj_headers obj)
-                                           L.empty m Nothing)
+                                           L.empty m)
        return (either Left (\x -> Right (populate_obj_from x)) res)
            where
              populate_obj_from x =
@@ -178,7 +178,7 @@ deleteObject aws obj = do res <- Auth.runAction (S3Action aws (urlEncode (obj_bu
                                                               (urlEncode (obj_name obj))
                                                               ""
                                                               (obj_headers obj)
-                                                              L.empty DELETE Nothing)
+                                                              L.empty DELETE)
                           return (either Left (\_ -> Right ()) res)
 
 -- | Copy object from one bucket to another (or the same bucket), preserving the original headers.
@@ -201,7 +201,7 @@ copyObject aws srcobj destobj =
                                            (urlEncode (obj_name destobj))
                                            ""
                                            (copy_headers)
-                                           L.empty PUT Nothing)
+                                           L.empty PUT)
        return (either Left (\x -> Right (populate_obj_from x)) res)
            where
              populate_obj_from x =

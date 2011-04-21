@@ -33,7 +33,6 @@ main = do argv <- getArgs
           let offset = fileSize contentFS
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          print ("offset is "++(show offset))
           let obj = S3Object bucket key "text/plain" [("Content-Length",(show offset))] f
           res <- sendObject conn obj
           either (putStrLn . prettyReqError)
