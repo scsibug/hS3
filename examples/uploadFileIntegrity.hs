@@ -25,8 +25,7 @@ import Data.Maybe
 import System.IO
 import qualified Data.ByteString.Lazy as L
 import System.Posix.Files
-import Data.Digest.MD5(hash)
-import Codec.Binary.Base64 (encode, decode)
+
 
 main = do argv <- getArgs
           let bucket : key : filename : xs = argv
@@ -35,12 +34,9 @@ main = do argv <- getArgs
           let offset = fileSize contentFS
           mConn <- amazonS3ConnectionFromEnv
           let conn = fromJust mConn
-          let headers = [("Content-Length", (show offset)), ("Content-MD5", (mkMD5 f))]
-          print headers
+          let headers = [("Content-Length", (show offset))]
           let obj = S3Object bucket key "text/plain" headers f
-          res <- sendObject conn obj
+          res <- sendObjectMIC conn obj
           either (putStrLn . prettyReqError)
                  (const $ putStrLn ("Creation of " ++ key ++ " successful."))
                  res
-
-mkMD5 = encode . hash . L.unpack
