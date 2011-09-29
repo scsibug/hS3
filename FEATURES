@@ -19,7 +19,7 @@ supported by hS3 are listed below.
   * Expiring either on a given date, or number of seconds from current time
  * Setting the storage class (Reduced Redundancy or Standard) for new objects
  * Rewrite storage class of existing objects
-
+ * MD5 message integrity check for sent objects (optional)
 
 Missing feature list (incomplete).  We know the following features are not
 yet supported.  Some features may be available without changing the
