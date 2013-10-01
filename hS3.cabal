@@ -1,5 +1,5 @@
 Name:           hS3
-Version:        0.5.7
+Version:        0.5.8
 License:        BSD3
 License-file:   LICENSE
 Cabal-Version: >= 1.6
@@ -28,8 +28,8 @@ extra-source-files: README, CONTRIBUTORS, FEATURES,
                     examples/uploadFile.hs
 
 source-repository head
-  type:     darcs
-  location: http://gregheartsfield.com/repos/hS3/
+  type:     git
+  location: http://github.com/errge/hS3
 
 Library
 
