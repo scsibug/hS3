@@ -11,7 +11,7 @@
 
 module Network.AWS.S3Object (
   -- * Function Types
-  sendObject, copyObject, copyObjectWithReplace, getObject,
+  sendObject, sendObjectMIC, copyObject, copyObjectWithReplace, getObject,
   getObjectInfo, deleteObject, publicUriForSeconds,
   publicUriUntilTime, setStorageClass, getStorageClass,
   rewriteStorageClass,
@@ -27,8 +27,11 @@ import Network.URI
 import System.Time
 import Data.List.Utils
 import Data.List(lookup)
+import Data.Digest.MD5(hash)
+import Codec.Binary.Base64 (encode)
 
 import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.ByteString.Lazy as LO
 
 -- | An object that can be stored and retrieved from S3.
 data S3Object =
@@ -109,6 +112,18 @@ sendObject aws obj =
                                obj_headers obj)
                               (obj_data obj) PUT)
        return (either Left (\_ -> Right ()) res)
+
+-- | Send data for an object, with message integrity check.  This
+--   version of sendObject will add an MD5 message integrity check so
+--   that transmission errors will be detected, but requires the message
+--   be read into memory before being sent.
+sendObjectMIC :: AWSConnection      -- ^ AWS connection information
+              -> S3Object           -- ^ Object to add to a bucket
+              -> IO (AWSResult ())  -- ^ Server response
+sendObjectMIC aws obj = sendObject aws obj_w_header where
+    obj_w_header = obj { obj_headers = (obj_headers obj) ++ md5_header }
+    md5_header = [("Content-MD5", (mkMD5 (obj_data obj)))]
+    mkMD5 = encode . hash . LO.unpack
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
 --   an object until the specified date.

@@ -31,6 +31,7 @@ tests =
     TestList
     [
      TestLabel "S3 Operations Test" s3OperationsTest,
+     TestLabel "S3 Message Integrity Check" s3MessageIntegrityCheckTest,
      TestLabel "S3 Copy Test" s3CopyTest,
      TestLabel "S3 Copy/Replace Test" s3CopyReplaceTest,
      TestLabel "S3 Location Test" s3LocationTest,
@@ -80,6 +81,18 @@ s3OperationsTest =
                  -- Bucket should be gone
                  threadDelay 3000000 -- sleep 3 sec, since bucket isn't always unavailable immediately
                  testBucketGone c bucket
+             )
+
+s3MessageIntegrityCheckTest =
+    TestCase (
+              do c <- getConn
+                 bucket <- testCreateBucket c
+                 testGetBucketLocation c bucket "US"
+                 let testObj = testObjectTemplate {obj_bucket = bucket}
+                 -- Object send
+                 testSendObjectMIC c testObj
+                 -- Object get
+                 testGetObject c testObj
              )
 
 s3LocationTest =
@@ -234,6 +247,12 @@ testGetBucketLocation c bucket expectedLocation =
 testSendObject :: AWSConnection -> S3Object -> IO ()
 testSendObject c o =
     do r <- sendObject c o
+       failOnError r ()
+              (const $ assertBool "object send" True)
+
+testSendObjectMIC :: AWSConnection -> S3Object -> IO ()
+testSendObjectMIC c o =
+    do r <- sendObjectMIC c o
        failOnError r ()
               (const $ assertBool "object send" True)
 
