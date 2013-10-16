@@ -18,8 +18,7 @@ import Network.AWS.S3Object
 import Network.AWS.S3Bucket
 import Data.Maybe (fromJust)
 import qualified Data.ByteString.Lazy.Char8 as L
-import Control.Exception(finally)
-import IO(bracket)
+import Control.Exception(finally,bracket)
 import Control.Concurrent(threadDelay)
 import Data.List.Utils(hasKeyAL)
 import Test.HUnit
