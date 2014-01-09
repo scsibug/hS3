@@ -29,7 +29,7 @@ extra-source-files: README, CONTRIBUTORS, FEATURES,
 
 source-repository head
   type:     git
-  location: http://github.com/errge/hS3
+  location: http://github.com/scsibug/hS3
 
 Library
 
