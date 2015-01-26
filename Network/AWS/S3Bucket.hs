@@ -219,6 +219,9 @@ data ListResult =
       etag :: String, -- ^ MD5
       size :: Integer, -- ^ Bytes of object data
       storageClass :: StorageClass -- ^ Storage class of the object
+    } 
+    | CommonPrefix {
+      keyPrefix :: String
     } deriving (Show)
 
 -- | Is a result set response truncated?
@@ -291,13 +294,17 @@ getListResults :: String -> IO [ListResult]
 getListResults s = runX (readString [withValidate no] s >>> processListResults)
 
 processListResults :: ArrowXml a => a (Data.Tree.NTree.TypeDefs.NTree XNode) ListResult
-processListResults = deep (isElem >>> hasName "Contents") >>>
+processListResults = (deep (isElem >>> hasName "Contents") >>>
                      ((text <<< atTag "Key") &&&
                       (text <<< atTag "LastModified") &&&
                       (text <<< atTag "ETag") &&&
                       (text <<< atTag "Size") &&&
                       (text <<< atTag "StorageClass")) >>>
-                     arr (\(a,(b,(c,(d,e)))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d) (read e))
+                     arr (\(a,(b,(c,(d,e)))) -> ListResult a b ((unquote . HTTP.urlDecode) c) (read d) (read e)))
+                     <+>
+                     (deep (isElem >>> hasName "CommonPrefixes") >>>
+                     (text <<< atTag "Prefix") >>>
+                     arr (\a -> CommonPrefix a))
 
 -- | Check Amazon guidelines on bucket naming.  (missing test for IP-like names)
 isBucketNameValid :: String -> Bool
