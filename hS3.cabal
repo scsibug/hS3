@@ -44,10 +44,10 @@ Library
                   old-time,
                   random,
                   old-locale,
-                  dataenc,
+                  dataenc,  -- non-stackage dependency
                   utf8-string,
                   bytestring,
-                  MissingH >= 0.18.6
+                  MissingH
 
   if flag(network-uri)
     Build-depends: network-uri >= 2.6, network >= 2.6
