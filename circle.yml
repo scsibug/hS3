@@ -12,6 +12,7 @@ dependencies:
     - "~/hS3/.cabal-sandbox"
 
   override:
+    - apt-get install git
     - git clone git@github.com:plow-technologies/plow-scripts.git
     - cp plow-scripts/config $HOME/.cabal/config
     - cabal update
