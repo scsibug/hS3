@@ -3,7 +3,7 @@ machine:
     version: 7.8.3
 
   environment:
-    PATH: $HOME/.cabal/bin:$CIRCLE_ARTIFACTS
+    PATH: $HOME/.cabal/bin:$CIRCLE_ARTIFACTS:$PATH:$HOME/$CIRCLE_PROJECT_REPONAME/.cabal-sandbox/bin
 
 dependencies:
 
