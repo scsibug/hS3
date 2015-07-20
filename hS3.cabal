@@ -44,7 +44,7 @@ Library
                   old-time,
                   random,
                   old-locale,
-                  dataenc,  -- non-stackage dependency
+                  dataenc,
                   utf8-string,
                   bytestring,
                   MissingH
