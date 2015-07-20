@@ -35,10 +35,10 @@ source-repository head
   location: https://github.com/scsibug/hS3
 
 Library
-  Build-depends:  base >= 3 && < 5,
-                  HTTP >= 4000.0.0,
-                  Crypto >= 4.1.0,
-                  hxt >= 9.0.0 && < 10,
+  Build-depends:  base,
+                  HTTP,
+                  Crypto,
+                  hxt,
                   network,
                   regex-compat,
                   old-time,
