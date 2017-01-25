@@ -56,7 +56,7 @@ import Text.XML.HXT.Arrow.ReadDocument
 
 rightToMaybe = either (const Nothing) Just
 encodeBS = unpack . encode . pack
-decodeBS = rightToMaybe . unpack . decode . pack
+decodeBS = fmap unpack . rightToMaybe . decode . pack
 
 -- | An action to be performed using S3.
 data S3Action =
