@@ -54,6 +54,14 @@ import Text.XML.HXT.DOM.XmlKeywords
 import Text.XML.HXT.Arrow.XmlState
 import Text.XML.HXT.Arrow.ReadDocument
 
+either f _ (Left x)  = f x
+either _ g (Right y) = g y
+
+rightToMaybe = either (const Nothing) Just
+
+encodeBS = unpack . encode . pack
+decodeBS = rightToMaybe . unpack . decode . pack
+
 -- | An action to be performed using S3.
 data S3Action =
     S3Action {
@@ -121,7 +129,7 @@ makeSignature :: AWSConnection -- ^ Action with authentication data
               -> String -- ^ String to sign
               -> String -- ^ Base-64 encoded signature
 makeSignature c s =
-        encode (hmac_sha1 keyOctets msgOctets)
+        encodeBS (hmac_sha1 keyOctets msgOctets)
         where keyOctets = string2words (awsSecretKey c)
               msgOctets = string2words s
 
@@ -387,7 +395,7 @@ mimeDecodeQP' [] = []
 
 mimeDecodeB64 :: String -> String
 mimeDecodeB64 s =
-    case decode s of
+    case decodeBS s of
         Nothing -> ""
         Just a ->  US.decode a
 

@@ -123,7 +123,7 @@ sendObjectMIC :: AWSConnection      -- ^ AWS connection information
 sendObjectMIC aws obj = sendObject aws obj_w_header where
     obj_w_header = obj { obj_headers = (obj_headers obj) ++ md5_header }
     md5_header = [("Content-MD5", (mkMD5 (obj_data obj)))]
-    mkMD5 = encode . hash . LO.unpack
+    mkMD5 = L.unpack . encode . L.pack . hash . LO.unpack
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
 --   an object until the specified date.
