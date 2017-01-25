@@ -54,11 +54,7 @@ import Text.XML.HXT.DOM.XmlKeywords
 import Text.XML.HXT.Arrow.XmlState
 import Text.XML.HXT.Arrow.ReadDocument
 
-either f _ (Left x)  = f x
-either _ g (Right y) = g y
-
 rightToMaybe = either (const Nothing) Just
-
 encodeBS = unpack . encode . pack
 decodeBS = rightToMaybe . unpack . decode . pack
 
