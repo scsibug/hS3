@@ -55,7 +55,7 @@ import Text.XML.HXT.Arrow.XmlState
 import Text.XML.HXT.Arrow.ReadDocument
 
 rightToMaybe = either (const Nothing) Just
-encodeBS = unpack . encode . pack
+encodeBS = unpack . encode . US.decode . pack
 decodeBS = fmap unpack . rightToMaybe . decode . pack
 
 -- | An action to be performed using S3.
@@ -390,10 +390,7 @@ mimeDecodeQP' (h:t) =h : mimeDecodeQP' t
 mimeDecodeQP' [] = []
 
 mimeDecodeB64 :: String -> String
-mimeDecodeB64 s =
-    case decodeBS s of
-        Nothing -> ""
-        Just a ->  US.decode a
+mimeDecodeB64 = maybe "" decodeBS
 
  -- Encode a String into quoted printable, if needed.
  -- eq: =?UTF-8?Q?=aa?=
