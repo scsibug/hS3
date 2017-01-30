@@ -28,10 +28,13 @@ import System.Time
 import Data.List.Utils
 import Data.List(lookup)
 import Data.Digest.MD5(hash)
+import Data.Word (Word8)
 import Codec.Binary.Base64 (encode)
 
 import qualified Data.ByteString.Lazy.Char8 as L
 import qualified Data.ByteString.Lazy as LO
+
+import qualified Codec.Binary.UTF8.String as US
 
 -- | An object that can be stored and retrieved from S3.
 data S3Object =
@@ -123,7 +126,7 @@ sendObjectMIC :: AWSConnection      -- ^ AWS connection information
 sendObjectMIC aws obj = sendObject aws obj_w_header where
     obj_w_header = obj { obj_headers = (obj_headers obj) ++ md5_header }
     md5_header = [("Content-MD5", (mkMD5 (obj_data obj)))]
-    mkMD5 = encode . hash . LO.unpack
+    mkMD5 = L.unpack . L.fromStrict . encode . LO.toStrict . LO.pack . hash . US.encode . L.unpack
 
 -- | Create a pre-signed request URI.  Anyone can use this to request
 --   an object until the specified date.
